@@ -1,16 +1,9 @@
 import pygame
-import sys
-import os
-
-FPS = 50
-WIDTH, HEIGHT = 550, 550
-pygame.init()
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
 
-class Images:
-    def __init__(self):
-        pass
+class Loads:
+    WIDTH, HEIGHT = 550, 550
+    tile_width = tile_height = 50
 
     def load_image(self, name, colorkey=None):
         fullname = os.path.join('data', name)
@@ -27,62 +20,49 @@ class Images:
             image.set_colorkey(colorkey)
         return image
 
-    def start_screen(self):
-        intro_text = ["ЗАСТАВКА", "",
-                      "Правила игры",
-                      "Если в правилах несколько строк,",
-                      "приходится выводить их построчно"]
-
-        fon = pygame.transform.scale(self.load_image('fon.jpg'), (WIDTH, HEIGHT))
-        screen.blit(fon, (0, 0))
-        font = pygame.font.Font(None, 30)
-        text_coord = 50
-        for line in intro_text:
-            string_rendered = font.render(line, 1, pygame.Color('black'))
-            intro_rect = string_rendered.get_rect()
-            text_coord += 10
-            intro_rect.top = text_coord
-            intro_rect.x = 10
-            text_coord += intro_rect.height
-            screen.blit(string_rendered, intro_rect)
-
-
-class Level:
-    def __init__(self):
-        self.image = Images()
-        self.tile_images = {'wall': self.image.load_image('wall.png'),
-                            'empty': self.image.load_image('grass.png'),
-                            'metal_wall': self.image.load_image('metal_wall.png')}
-
-        self.player_image = self.image.load_image('tank.png')
-        self.tile_width = self.tile_height = 20
-
     def load_level(self, filename):
         filename = "data/" + filename
         with open(filename, 'r') as mapFile:
             level_map = [line.strip() for line in mapFile]
 
-        # и подсчитываем максимальную длину
-        max_width = WIDTH // self.tile_width
-        max_height = HEIGHT // self.tile_height
+        max_width = Loads.WIDTH // Loads.tile_width
+        max_height = Loads.HEIGHT // Loads.tile_height
 
         return list(map(lambda x: [i for i in x.ljust(max_width, '.')], level_map)) + [['.'] * max_width] * (
                 max_height - len(level_map))
 
-    
+
+class Tile(pygame.sprite.Sprite):
+    lds = Loads()
+    tile_images = {
+        'empty': lds.load_image('grass.png'),
+        'wall': lds.load_image('bricks.png'),
+        'metal': lds.load_image('metal.png')
+    }
+
+    def __init__(self, pos, t_type, tiles_group, all_sprites):
+        super().__init__(tiles_group, all_sprites)
+        self.image = pygame.transform.scale(Tile.tile_images[t_type], (Loads.tile_width, Loads.tile_height))
+        self.rect = self.image.get_rect()
+        self.rect.x = pos[0]
+        self.rect.y = pos[1]
 
 
-    def ret_tile_images(self):
-        return self.tile_images
+class Level:
 
-    def ret_tile_size(self):
-        return self.tile_width, self.tile_height
+    def __init__(self, tiles_group, all_sprites):
+        self.tiles_group = tiles_group
+        self.all_sprites = all_sprites
 
-
-class Game:
-    def __init__(self):
-        pass
-
-    def terminate(self):
-        pygame.quit()
-        sys.exit()
+    def generate_level(self, level):
+        for y in range(len(level)):
+            for x in range(len(level[y])):
+                if level[y][x] == '.':
+                    self.t_type = 'empty'
+                elif level[y][x] == '#':
+                    self.t_type = 'wall'
+                elif level[y][x] == '+':
+                    self.t_type = 'metal'
+                self.tiles_group.add(
+                    Tile((x * Loads.tile_width, y * Loads.tile_height), self.t_type, self.tiles_group,
+                         self.all_sprites))
