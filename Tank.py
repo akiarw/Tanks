@@ -1,9 +1,19 @@
 import pygame
+import os
+
+WIDTH, HEIGHT = 550, 550
+tiles_group = pygame.sprite.Group()
+all_sprites = pygame.sprite.Group()
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.init()
 
 
 class Loads:
     WIDTH, HEIGHT = 550, 550
     tile_width = tile_height = 50
+
+    def __init__(self):
+        pass
 
     def load_image(self, name, colorkey=None):
         fullname = os.path.join('data', name)
@@ -66,3 +76,9 @@ class Level:
                 self.tiles_group.add(
                     Tile((x * Loads.tile_width, y * Loads.tile_height), self.t_type, self.tiles_group,
                          self.all_sprites))
+        return self.tiles_group
+
+
+while True:
+    tiles_group = Level(tiles_group, all_sprites).generate_level(Loads().load_level('level.txt'))
+    tiles_group.draw(screen)
