@@ -1,6 +1,7 @@
 import pygame
 import os
 
+FPS = 90
 tile_width = tile_height = 50
 WIDTH, HEIGHT = 1000, 700
 tiles_group = pygame.sprite.Group()
@@ -72,7 +73,8 @@ class Metal(Tile):
 class Level:
 
     def generate_level(self, level):
-        global tiles_group, all_sprites
+        global tiles_group, all_sprites, walls
+        walls = []
         tiles_group = pygame.sprite.Group()
         all_sprites = pygame.sprite.Group()
         for y in range(len(level)):
@@ -81,13 +83,15 @@ class Level:
                     tiles_group.add(Grass((x * tile_width, y * tile_height)))
                 elif level[y][x] == '#':
                     tiles_group.add(Bricks((x * tile_width, y * tile_height)))
+                    walls.append([x * tile_width, y * tile_height])
                 elif level[y][x] == '+':
                     tiles_group.add(Metal((x * tile_width, y * tile_height)))
+                    walls.append([x * tile_width, y * tile_height])
         all_sprites.add(my_tank)
 
 
 class Tank(pygame.sprite.Sprite):
-    tank_image_down = pygame.transform.scale(Loads().load_image('tank.png'), (tile_width - 20, tile_height - 20))
+    tank_image_down = pygame.transform.scale(Loads().load_image('tank.png'), (30, 30))
     tank_image_up = pygame.transform.rotate(tank_image_down, 180)
     tank_image_left = pygame.transform.rotate(tank_image_down, 270)
     tank_image_right = pygame.transform.rotate(tank_image_down, 90)
@@ -101,23 +105,48 @@ class Tank(pygame.sprite.Sprite):
 
     def move(self, vector):
         if vector == 'left':
-            self.rect.x -= self.speed
             self.image = self.tank_image_left
+            if self.is_on_grass((self.rect.x - self.speed, self.rect.y)):
+                self.rect.x -= self.speed
         elif vector == 'right':
-            self.rect.x += self.speed
             self.image = self.tank_image_right
+            if self.is_on_grass((self.rect.x + self.speed, self.rect.y)):
+                self.rect.x += self.speed
         elif vector == 'up':
-            self.rect.y -= self.speed
             self.image = self.tank_image_up
+            if self.is_on_grass((self.rect.x, self.rect.y - self.speed)):
+                self.rect.y -= self.speed
         elif vector == 'down':
-            self.rect.y += self.speed
             self.image = self.tank_image_down
+            if self.is_on_grass((self.rect.x, self.rect.y + self.speed)):
+                self.rect.y += self.speed
+
+    def is_on_grass(self, pos):
+        for wall in walls:
+            if self.is_peres_rects([pos[0], pos[1], 30, 30],
+                                   [wall[0], wall[1], tile_width, tile_height]):
+                return False
+        if 0 > pos[0] or pos[0] + 30 > WIDTH or 0 > pos[1] or pos[1] + 30 > HEIGHT:
+            return False
+        return True
+
+    def is_peres_rects(self, rct1, rct2):
+        if rct1[0] > rct2[0]:
+            rct1, rct2 = rct2, rct1
+        if rct2[0] in range(rct1[0], sum(rct1[::2]) + 1):
+            if rct1[1] > rct2[1]:
+                rct1, rct2 = rct2, rct1
+            if rct2[1] in range(rct1[1], sum(rct1[1::2]) + 1):
+                return True
+        return False
 
 
+clock = pygame.time.Clock()
 level = Loads().load_level('level.txt')
 my_tank = Tank()
 running = True
 moving = False
+walls = []
 while running:
 
     for event in pygame.event.get():
@@ -137,3 +166,4 @@ while running:
     Level().generate_level(level)
     all_sprites.draw(screen)
     pygame.display.flip()
+    clock.tick(FPS)
