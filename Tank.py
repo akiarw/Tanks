@@ -55,6 +55,13 @@ class Tile(pygame.sprite.Sprite):
         self.rect.x = pos[0]
         self.rect.y = pos[1]
 
+    def destroy(self, num):
+        self.armor -= 1
+        if not self.armor:
+            self = Grass((self.rect.x, self.rect.y))
+            walls[num] = [-tile_width, -tile_height]
+
+
 
 class Grass(Tile):
     def __init__(self, pos):
@@ -64,11 +71,13 @@ class Grass(Tile):
 class Bricks(Tile):
     def __init__(self, pos):
         super().__init__(pos, 'wall')
+        self.armor = 3
 
 
 class Metal(Tile):
     def __init__(self, pos):
         super().__init__(pos, 'metal')
+        self.armor = 10
 
 
 class Bullet(pygame.sprite.Sprite):
@@ -83,7 +92,7 @@ class Bullet(pygame.sprite.Sprite):
     def __init__(self, vector):
         super().__init__(bullets_sprites)
         self.vector = vector
-        self.speed = 20
+        self.speed = 10
         self.image = self.images[vector]
         self.rect = self.image.get_rect()
 
@@ -91,6 +100,11 @@ class Bullet(pygame.sprite.Sprite):
         self.rect.x, self.rect.y = tank_pos
 
     def move(self):
+
+        num_of_block = self.is_flown()
+        if type(num_of_block) == int:
+            walls_sprts[num_of_block].destroy(num_of_block)
+
         if self.vector == 'up':
             self.rect.y -= self.speed
         elif self.vector == 'down':
@@ -101,6 +115,13 @@ class Bullet(pygame.sprite.Sprite):
             self.rect.x += self.speed
         if 0 > self.rect.x or self.rect.x > WIDTH or 0 > self.rect.y or self.rect.y > HEIGHT:
             self.minus()
+
+    def is_flown(self):
+        for i in range(len(walls)):
+            if Tank.is_peres_rects(None, [self.rect.x, self.rect.y, 10, 10], [walls[i][0], walls[i][1], 50, 50]):
+                self.minus()
+                print(i)
+                return i
 
     def minus(self):
         bullets_sprites.remove(self)
@@ -125,9 +146,11 @@ class Level:
                 elif level[y][x] == '#':
                     tiles_group.add(Bricks((x * tile_width, y * tile_height)))
                     walls.append([x * tile_width, y * tile_height])
+                    walls_sprts.append(Bricks((x * tile_width, y * tile_height)))
                 elif level[y][x] == '+':
                     tiles_group.add(Metal((x * tile_width, y * tile_height)))
                     walls.append([x * tile_width, y * tile_height])
+                    walls_sprts.append(Metal((x * tile_width, y * tile_height)))
 
     def generate_map(self):
         tank_sprites.add(my_tank)
@@ -185,6 +208,7 @@ class Tank(pygame.sprite.Sprite):
 
 
 walls = []
+walls_sprts = []
 clock = pygame.time.Clock()
 level = Loads().load_level('level.txt')
 map = Level(level)
