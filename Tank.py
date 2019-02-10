@@ -2,10 +2,11 @@ import pygame
 import os
 
 FPS = 100
-tile_width = tile_height = 50
+tile_width = tile_height = 25
 WIDTH, HEIGHT = 1000, 700
 tiles_group = pygame.sprite.Group()
 tank_sprites = pygame.sprite.Group()
+stealth_group = pygame.sprite.Group()
 bullets_sprites = pygame.sprite.Group()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.init()
@@ -43,9 +44,10 @@ class Loads:
 class Tile(pygame.sprite.Sprite):
     lds = Loads()
     tile_images = {
-        'empty': pygame.transform.scale(lds.load_image('grass.jpg'), (tile_width, tile_height)),
+        'empty': pygame.transform.scale(lds.load_image('asphalt.png'), (tile_width, tile_height)),
         'wall': pygame.transform.scale(lds.load_image('bricks.png'), (tile_width, tile_height)),
         'metal': pygame.transform.scale(lds.load_image('metal.png'), (tile_width, tile_height)),
+        'bush': pygame.transform.scale(lds.load_image('grass.jpg'), (tile_width, tile_height))
     }
 
     def __init__(self, pos, t_type):
@@ -58,30 +60,35 @@ class Tile(pygame.sprite.Sprite):
     def destroy(self, num):
         self.armor -= 1
         if not self.armor:
-            self = Grass((self.rect.x, self.rect.y))
+            self = Empty((self.rect.x, self.rect.y))
             walls[num] = [-tile_width, -tile_height]
 
 
 
 class Grass(Tile):
     def __init__(self, pos):
-        super().__init__(pos, 'empty')
+        super().__init__(pos, 'bush')
 
 
 class Bricks(Tile):
     def __init__(self, pos):
         super().__init__(pos, 'wall')
-        self.armor = 3
+        self.armor = 2
 
 
 class Metal(Tile):
     def __init__(self, pos):
         super().__init__(pos, 'metal')
-        self.armor = 10
+        self.armor = 7
+
+
+class Empty(Tile):
+    def __init__(self, pos):
+        super().__init__(pos, 'empty')
 
 
 class Bullet(pygame.sprite.Sprite):
-    base_image = pygame.transform.scale(Loads().load_image('bullet.png'), (10, 20))
+    base_image = pygame.transform.scale(Loads().load_image('bullet.png'), (5, 10))
     images = {
         'up': base_image,
         'down': pygame.transform.rotate(base_image, 180),
@@ -118,9 +125,9 @@ class Bullet(pygame.sprite.Sprite):
 
     def is_flown(self):
         for i in range(len(walls)):
-            if Tank.is_peres_rects(None, [self.rect.x, self.rect.y, 10, 10], [walls[i][0], walls[i][1], 50, 50]):
+            if Tank.is_peres_rects(None, [self.rect.x, self.rect.y, 5, 5],
+                                   [walls[i][0], walls[i][1], tile_width, tile_height]):
                 self.minus()
-                print(i)
                 return i
 
     def minus(self):
@@ -141,8 +148,8 @@ class Level:
     def __init__(self, level):
         for y in range(len(level)):
             for x in range(len(level[y])):
-                if level[y][x] in ['.', ' ']:
-                    tiles_group.add(Grass((x * tile_width, y * tile_height)))
+                if level[y][x] == '.':
+                    tiles_group.add(Empty((x * tile_width, y * tile_height)))
                 elif level[y][x] == '#':
                     tiles_group.add(Bricks((x * tile_width, y * tile_height)))
                     walls.append([x * tile_width, y * tile_height])
@@ -151,8 +158,8 @@ class Level:
                     tiles_group.add(Metal((x * tile_width, y * tile_height)))
                     walls.append([x * tile_width, y * tile_height])
                     walls_sprts.append(Metal((x * tile_width, y * tile_height)))
-
-    def generate_map(self):
+                elif level[y][x] == '*':
+                    stealth_group.add(Grass((x * tile_width, y * tile_height)))
         tank_sprites.add(my_tank)
 
 
@@ -209,13 +216,24 @@ class Tank(pygame.sprite.Sprite):
 
 walls = []
 walls_sprts = []
+
 clock = pygame.time.Clock()
+
 level = Loads().load_level('level.txt')
-map = Level(level)
+
 my_tank = Tank()
+the_map = Level(level)
+
+napr = None
+vectors = {
+    273: 'up',
+    274: 'down',
+    275: 'right',
+    276: 'left'
+}
+
+vector = None
 running = True
-moving = False
-vector = 'up'
 while running:
 
     for event in pygame.event.get():
@@ -223,29 +241,23 @@ while running:
             running = False
 
         if event.type == pygame.KEYDOWN:
-            moving = True
-            if event.key == 276:
-                vector = 'left'
-            elif event.key == 275:
-                vector = 'right'
-            elif event.key == 273:
-                vector = 'up'
-            elif event.key == 274:
-                vector = 'down'
-            elif event.key == 32:
-                Bullet(vector).shoot((my_tank.rect.x + 10, my_tank.rect.y + 10))
-                moving = False
+            if event.key == 32:
+                Bullet(vector if vector else napr).shoot((my_tank.rect.x + 13, my_tank.rect.y + 13))
+            else:
+                vector = vectors.get(event.key, None)
 
         if event.type == pygame.KEYUP:
-            moving = False
+            if vectors.get(event.key, None) == vector and vector:
+                napr = vector
+                vector = None
 
-    if moving:
+    if vector:
         my_tank.move(vector)
-    map.generate_map()
     tiles_group.draw(screen)
     bullets_sprites.draw(screen)
     tank_sprites.draw(screen)
-    for bullet in bullets_sprites:
-        bullet.move()
+    stealth_group.draw(screen)
     pygame.display.flip()
     clock.tick(FPS)
+    for bullet in bullets_sprites:
+        bullet.move()
