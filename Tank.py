@@ -4,10 +4,13 @@ import os
 FPS = 100
 tile_width = tile_height = 25
 WIDTH, HEIGHT = 1000, 700
+
 tiles_group = pygame.sprite.Group()
 tank_sprites = pygame.sprite.Group()
 stealth_group = pygame.sprite.Group()
 bullets_sprites = pygame.sprite.Group()
+menu_group = pygame.sprite.Group()
+
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.init()
 
@@ -64,7 +67,6 @@ class Tile(pygame.sprite.Sprite):
             walls[num] = [-tile_width, -tile_height]
 
 
-
 class Grass(Tile):
     def __init__(self, pos):
         super().__init__(pos, 'bush')
@@ -85,6 +87,55 @@ class Metal(Tile):
 class Empty(Tile):
     def __init__(self, pos):
         super().__init__(pos, 'empty')
+
+
+class MainMenu:
+
+    def __init__(self):
+        self.name = pygame.sprite.Sprite()
+        self.name.image = Loads().load_image('Name.png')
+        self.name.rect = self.name.image.get_rect()
+        self.name.rect.x, self.name.rect.y = 330, 250
+
+        self.__font = pygame.font.Font(None, 30)
+
+        self.play = self.__font.render("Play", 1, (255, 255, 255))
+        self.pos_play = (400, 400)
+
+        self.create = self.__font.render("Create player's map", 1, (255, 255, 255))
+        self.pos_create = (self.pos_play[0], self.pos_play[1] + 50)
+
+        self.exit = self.__font.render("Exit", 1, (255, 255, 255))
+        self.pos_exit = (self.pos_play[0], self.pos_play[1] + 100)
+
+        self.arrow = pygame.sprite.Sprite()
+        self.arrow.image = Tank.tank_image_right
+        self.arrow.rect = self.arrow.image.get_rect()
+        self.arrow.rect.x, self.arrow.rect.y = self.pos_play[0] - 50, self.pos_play[1] - 5
+
+        menu_group.add(self.arrow)
+        menu_group.add(self.name)
+
+    def draw(self):
+        screen.fill((0, 0, 0))
+        screen.blit(self.play, self.pos_play)
+        screen.blit(self.create, self.pos_create)
+        screen.blit(self.exit, self.pos_exit)
+        menu_group.draw(screen)
+
+    def change_cursor(self, vect):
+        if vect == 'down':
+            self.arrow.rect.y += 50 if self.arrow.rect.y < self.pos_exit[1] - 5 else 0
+        elif vect == 'up':
+            self.arrow.rect.y -= 50 if self.arrow.rect.y > self.pos_play[1] - 5 else 0
+
+    def act(self):
+        if self.arrow.rect.y == self.pos_play[1] - 5:
+            return 'start'
+        elif self.arrow.rect.y == self.pos_create[1] - 5:
+            return 'create'
+        else:
+            return 'exit'
 
 
 class Bullet(pygame.sprite.Sprite):
@@ -221,6 +272,8 @@ clock = pygame.time.Clock()
 
 level = Loads().load_level('level.txt')
 
+main_menu = MainMenu()
+in_menu = True
 my_tank = Tank()
 the_map = Level(level)
 
@@ -231,9 +284,28 @@ vectors = {
     275: 'right',
     276: 'left'
 }
+running = True
+
+while in_menu:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == 32:
+                act = main_menu.act()
+                if act == 'start':
+                    in_menu = False
+                elif act == 'exit':
+                    in_menu, running = False, False
+            elif event.key in [273, 274]:
+                main_menu.change_cursor(vectors[event.key])
+
+    main_menu.draw()
+    pygame.display.flip()
 
 vector = None
-running = True
+
 while running:
 
     for event in pygame.event.get():
