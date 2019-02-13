@@ -1,5 +1,7 @@
 import pygame
 import os
+import sys
+from random import randrange
 
 FPS = 100
 tile_width = tile_height = 25
@@ -169,6 +171,7 @@ class SubMenu:
 
     def draw(self):
         pygame.draw.rect(screen, (0, 0, 0), (0, HEIGHT, WIDTH, 100))
+        pygame.draw.rect(screen, (255, 255, 255), (0, HEIGHT, WIDTH, 100), 4)
         self.draw_chrs()
         icons.draw(screen)
 
@@ -186,9 +189,9 @@ class Bullet(pygame.sprite.Sprite):
         'left': pygame.transform.rotate(base_image, 90)
     }
 
-    def __init__(self, vector, num_of_tank):
+    def __init__(self, vector, tank):
         super().__init__(bullets_sprites)
-        self.num_of_tank = num_of_tank
+        self.tank = tank
         self.vector = vector
         self.speed = 10
         self.image = self.images[vector]
@@ -221,11 +224,11 @@ class Bullet(pygame.sprite.Sprite):
                 self.minus()
                 return i
 
-        for i in range(len(tanks)):
+        for tank in tanks:
             if Tank.is_peres_rects(None, [self.rect.x, self.rect.y, 5, 5],
-                                   [tanks[i].rect.x, tanks[i].rect.y, 30, 30]) and self.num_of_tank != i:
+                                   [tank.rect.x, tank.rect.y, 30, 30]) and tank != self.tank:
                 self.minus()
-                tanks[i].get_damage(10)
+                tank.get_damage(10)
 
     def minus(self):
         bullets_sprites.remove(self)
@@ -266,11 +269,11 @@ class Tank(pygame.sprite.Sprite):
     tank_image_left = pygame.transform.rotate(tank_image_down, 270)
     tank_image_right = pygame.transform.rotate(tank_image_down, 90)
 
-    def __init__(self, start_coords):
+    def __init__(self, start_coords, health=100, armor=100, speed=2):
         super().__init__(tank_sprites)
-        self.speed = 1
-        self.health = 100
-        self.armor = 100
+        self.speed = speed
+        self.health = health
+        self.armor = armor
         self.image = self.tank_image_up
         self.rect = self.image.get_rect()
         self.rect.x, self.rect.y = start_coords
@@ -318,33 +321,54 @@ class Tank(pygame.sprite.Sprite):
                 return True
         return False
 
-    def is_ok(self, tank_num):
-        if self.health <= 0:
-            self.destroy(tank_num)
-            return False
-        return True
-
-    def destroy(self, tank_num):
+    def destroy(self):
         tank_sprites.remove(self)
-        tanks[tank_num] = None
+        if self == tanks[0]:
+            sys.exit("game_over")
+        tanks.remove(self)
 
-    def get_damage(self, damage, ):
+    def get_damage(self, damage):
         if self.armor > 0:
             self.armor -= int(damage * 0.75)
             self.health -= int(damage * 0.25)
         else:
             self.health -= damage
+        if self.health <= 0:
+            self.destroy()
 
 
 class Enemy(Tank):
 
     def __init__(self, start_pos):
-        super().__init__(start_pos)
+        super().__init__(start_pos, 50, 0, 1)
+        self.evector = None
+        self.otkat = 0
 
-    def moving(self):
+    def vect_change(self, ox, oy):
+        if abs(ox) > abs(oy):
+            if ox > 0:
+                self.evector = 'left'
+            else:
+                self.evector = 'right'
+        elif abs(ox) < abs(oy):
+            if oy > 0:
+                self.evector = 'up'
+            else:
+                self.evector = 'down'
+
+    def action(self):
         ox = self.rect.x - tanks[0].rect.x
         oy = self.rect.y - tanks[0].rect.y
-        if abs(ox) > abs(oy)
+        if ox in range(-15, 16) or oy in range(-15, 16):
+            self.vect_change(ox, oy)
+            if self.otkat < 0:
+                Bullet(self.evector, self).shoot((self.rect.x + 13, self.rect.y + 13))
+                self.otkat = 35
+            self.evector = None
+        if not self.evector:
+            self.vect_change(ox, oy)
+
+        self.move(self.evector)
 
 
 walls = []
@@ -356,6 +380,8 @@ level = Loads().load_level('level.txt')
 
 main_menu = MainMenu()
 tanks = [Tank((500, 500))]
+for i in range(2):
+    tanks.append(Enemy((randrange(200, 900), randrange(200, 700))))
 in_menu = True
 the_map = Level(level)
 submenu = SubMenu()
@@ -397,7 +423,7 @@ while running:
 
         if event.type == pygame.KEYDOWN:
             if event.key == 32:
-                Bullet(vector if vector else napr, 0).shoot((tanks[0].rect.x + 13, tanks[0].rect.y + 13))
+                Bullet(vector if vector else napr, tanks[0]).shoot((tanks[0].rect.x + 13, tanks[0].rect.y + 13))
             else:
                 vector = vectors.get(event.key, None)
 
@@ -408,6 +434,9 @@ while running:
 
     submenu.update_stats()
     submenu.draw()
+    for tank in tanks[1:]:
+        tank.action()
+        tank.otkat -= 1
     if vector:
         tanks[0].move(vector)
     tiles_group.draw(screen)
