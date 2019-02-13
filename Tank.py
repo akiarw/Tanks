@@ -336,6 +336,17 @@ class Tank(pygame.sprite.Sprite):
             self.health -= damage
 
 
+class Enemy(Tank):
+
+    def __init__(self, start_pos):
+        super().__init__(start_pos)
+
+    def moving(self):
+        ox = self.rect.x - tanks[0].rect.x
+        oy = self.rect.y - tanks[0].rect.y
+        if abs(ox) > abs(oy)
+
+
 walls = []
 walls_sprts = []
 
@@ -345,7 +356,6 @@ level = Loads().load_level('level.txt')
 
 main_menu = MainMenu()
 tanks = [Tank((500, 500))]
-tanks.append(Tank((600, 600)))
 in_menu = True
 the_map = Level(level)
 submenu = SubMenu()
