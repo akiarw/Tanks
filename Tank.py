@@ -13,6 +13,8 @@ stealth_group = pygame.sprite.Group()
 bullets_sprites = pygame.sprite.Group()
 menu_group = pygame.sprite.Group()
 icons = pygame.sprite.Group()
+shoots = pygame.sprite.Group()
+explosions_group = pygame.sprite.Group()
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT + 100))
 pygame.init()
@@ -66,6 +68,7 @@ class Tile(pygame.sprite.Sprite):
     def destroy(self, num):
         self.armor -= 1
         if not self.armor:
+            Explosion((self.rect.x, self.rect.y))
             self = Empty((self.rect.x, self.rect.y))
             walls[num] = [-tile_width, -tile_height]
 
@@ -157,8 +160,10 @@ class SubMenu:
     armor_image.rect.x, armor_image.rect.y = 20, HEIGHT + 50
 
     def __init__(self):
-        self.health = tanks[0].health
-        self.armor = tanks[0].armor
+        self.__font = pygame.font.Font(None, 100)
+        self.update_stats()
+        self.score_pos = (WIDTH - 200, HEIGHT + 20)
+
         icons.add(self.health_image, self.armor_image)
 
     def draw_chrs(self):
@@ -169,15 +174,77 @@ class SubMenu:
         if self.armor > 0:
             pygame.draw.rect(screen, (0, 0, 255), (50, HEIGHT + 50, self.armor * 3, 20))
 
+    def text(self):
+        screen.blit(self.text_score, self.score_pos)
+
     def draw(self):
         pygame.draw.rect(screen, (0, 0, 0), (0, HEIGHT, WIDTH, 100))
         pygame.draw.rect(screen, (255, 255, 255), (0, HEIGHT, WIDTH, 100), 4)
+        self.text()
         self.draw_chrs()
         icons.draw(screen)
+        self.update_stats()
 
     def update_stats(self):
         self.health = tanks[0].health
         self.armor = tanks[0].armor
+        self.score = tanks[0].score
+        self.text_score = self.__font.render(str(self.score), 1, (255, 255, 255))
+
+
+class Explosion(pygame.sprite.Sprite):
+    lds = Loads()
+    explosion = []
+    for i in range(8):
+        explosion.append(pygame.transform.scale(lds.load_image('Explosions\\exp{}.png'.format(i + 1)),
+                                                (tile_width, tile_height)))
+
+    def __init__(self, coords):
+        super().__init__(explosions_group)
+        self.step = 0
+        self.image = self.explosion[0]
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = coords
+
+    def new_step(self):
+        self.step += 1
+        try:
+            self.image = self.explosion[self.step // 5]
+        except IndexError:
+            explosions_group.remove(self)
+
+
+class Shoot(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__(shoots)
+        self.otkat = 5
+        self.base_fire = pygame.transform.scale(Loads().load_image('Explosions\\fire.png'), (10, 10))
+        self.fires = {
+            'up': self.base_fire,
+            'down': pygame.transform.rotate(self.base_fire, 180),
+            'right': pygame.transform.rotate(self.base_fire, 270),
+            'left': pygame.transform.rotate(self.base_fire, 90)
+        }
+
+    def fir(self, tank_crds, vector):
+        self.image = self.fires[vector]
+        self.rect = self.image.get_rect()
+        tank_crds = list(tank_crds)
+
+        if vector == 'up':
+            tank_crds[0] += 10
+            tank_crds[1] -= 10
+        elif vector == 'down':
+            tank_crds[0] += 10
+            tank_crds[1] += 30
+        elif vector == 'left':
+            tank_crds[0] -= 10
+            tank_crds[1] += 10
+        else:
+            tank_crds[0] += 30
+            tank_crds[1] += 10
+
+        self.rect.x, self.rect.y = tank_crds
 
 
 class Bullet(pygame.sprite.Sprite):
@@ -271,6 +338,7 @@ class Tank(pygame.sprite.Sprite):
 
     def __init__(self, start_coords, health=100, armor=100, speed=2):
         super().__init__(tank_sprites)
+        self.score = 0
         self.speed = speed
         self.health = health
         self.armor = armor
@@ -322,10 +390,13 @@ class Tank(pygame.sprite.Sprite):
         return False
 
     def destroy(self):
+        Explosion((self.rect.x, self.rect.y))
         tank_sprites.remove(self)
         if self == tanks[0]:
             sys.exit("game_over")
         tanks.remove(self)
+        tanks[0].score += 1
+        respawn.append(100)
 
     def get_damage(self, damage):
         if self.armor > 0:
@@ -340,7 +411,7 @@ class Tank(pygame.sprite.Sprite):
 class Enemy(Tank):
 
     def __init__(self, start_pos):
-        super().__init__(start_pos, 50, 0, 1)
+        super().__init__(start_pos, 30, 0, 1)
         self.evector = None
         self.otkat = 0
 
@@ -374,15 +445,17 @@ class Enemy(Tank):
 walls = []
 walls_sprts = []
 
+respawn = []
+
 clock = pygame.time.Clock()
 
 level = Loads().load_level('level.txt')
 
 main_menu = MainMenu()
 tanks = [Tank((500, 500))]
-for i in range(2):
+for i in range(3):
     tanks.append(Enemy((randrange(200, 900), randrange(200, 700))))
-in_menu = True
+
 the_map = Level(level)
 submenu = SubMenu()
 
@@ -394,8 +467,9 @@ vectors = {
     276: 'left'
 }
 running = True
+in_menu = True
 
-'''while in_menu:
+while in_menu:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             in_menu = running = False
@@ -411,7 +485,7 @@ running = True
                 main_menu.change_cursor(vectors[event.key])
 
     main_menu.draw()
-    pygame.display.flip()'''
+    pygame.display.flip()
 
 vector = None
 
@@ -423,6 +497,7 @@ while running:
 
         if event.type == pygame.KEYDOWN:
             if event.key == 32:
+                Shoot().fir((tanks[0].rect.x, tanks[0].rect.y), vector if vector else napr)
                 Bullet(vector if vector else napr, tanks[0]).shoot((tanks[0].rect.x + 13, tanks[0].rect.y + 13))
             else:
                 vector = vectors.get(event.key, None)
@@ -432,17 +507,35 @@ while running:
                 napr = vector
                 vector = None
 
-    submenu.update_stats()
     submenu.draw()
+
+    for i in range(len(respawn)):
+        respawn[i] -= 1
+        if not respawn[i]:
+            tanks.append(Enemy((randrange(200, 900), randrange(200, 700))))
+
+    for sh in shoots:
+        sh.otkat -= 1
+        if sh.otkat < 0:
+            shoots.remove(sh)
+
     for tank in tanks[1:]:
         tank.action()
         tank.otkat -= 1
+
     if vector:
         tanks[0].move(vector)
+
+    for exp in explosions_group:
+        exp.new_step()
+
     tiles_group.draw(screen)
     bullets_sprites.draw(screen)
     tank_sprites.draw(screen)
     stealth_group.draw(screen)
+    shoots.draw(screen)
+    explosions_group.draw(screen)
+
     pygame.display.flip()
     clock.tick(FPS)
     for bullet in bullets_sprites:
