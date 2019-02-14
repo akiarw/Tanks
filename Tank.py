@@ -231,6 +231,7 @@ class Bullet(pygame.sprite.Sprite):
                 tank.get_damage(10)
 
     def minus(self):
+        enemy.play()
         bullets_sprites.remove(self)
 
     def is_on_grass(self, pos):
@@ -324,6 +325,7 @@ class Tank(pygame.sprite.Sprite):
     def destroy(self):
         tank_sprites.remove(self)
         if self == tanks[0]:
+            end.play()
             sys.exit("game_over")
         tanks.remove(self)
 
@@ -386,6 +388,11 @@ in_menu = True
 the_map = Level(level)
 submenu = SubMenu()
 
+start = pygame.mixer.Sound("sounds/gamestart.ogg")
+end = pygame.mixer.Sound("sounds/gameover.ogg")
+fire = pygame.mixer.Sound("sounds/fire.ogg")
+enemy = pygame.mixer.Sound("sounds/enemy.ogg")
+
 napr = 'up'
 vectors = {
     273: 'up',
@@ -405,6 +412,7 @@ running = True
                 act = main_menu.act()
                 if act == 'start':
                     in_menu = False
+                    start.play()
                 elif act == 'exit':
                     in_menu = running = False
             elif event.key in [273, 274]:
@@ -415,6 +423,9 @@ running = True
 
 vector = None
 
+pygame.mixer.music.load('sounds/background.mp3')
+pygame.mixer.music.play()
+
 while running:
 
     for event in pygame.event.get():
@@ -423,6 +434,7 @@ while running:
 
         if event.type == pygame.KEYDOWN:
             if event.key == 32:
+                fire.play()
                 Bullet(vector if vector else napr, tanks[0]).shoot((tanks[0].rect.x + 13, tanks[0].rect.y + 13))
             else:
                 vector = vectors.get(event.key, None)
