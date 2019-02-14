@@ -19,6 +19,11 @@ explosions_group = pygame.sprite.Group()
 screen = pygame.display.set_mode((WIDTH, HEIGHT + 100))
 pygame.init()
 
+start_sound = pygame.mixer.Sound("sounds/gamestart.ogg")
+end_sound = pygame.mixer.Sound("sounds/gameover.ogg")
+fire_sound = pygame.mixer.Sound("sounds/fire.ogg")
+enemy_sound = pygame.mixer.Sound("sounds/enemy.ogg")
+
 
 class Loads:
 
@@ -98,6 +103,7 @@ class Empty(Tile):
 class MainMenu:
 
     def __init__(self):
+        start_sound.play()
         self.name = pygame.sprite.Sprite()
         self.name.image = Loads().load_image('Name.png')
         self.name.rect = self.name.image.get_rect()
@@ -487,7 +493,10 @@ while in_menu:
     main_menu.draw()
     pygame.display.flip()
 
+start_sound.stop()
 vector = None
+pygame.mixer.music.load('sounds/background.mp3')
+pygame.mixer.music.play()
 
 while running:
 
@@ -497,6 +506,7 @@ while running:
 
         if event.type == pygame.KEYDOWN:
             if event.key == 32:
+                fire_sound.play()
                 Shoot().fir((tanks[0].rect.x, tanks[0].rect.y), vector if vector else napr)
                 Bullet(vector if vector else napr, tanks[0]).shoot((tanks[0].rect.x + 13, tanks[0].rect.y + 13))
             else:
@@ -513,6 +523,7 @@ while running:
         respawn[i] -= 1
         if not respawn[i]:
             tanks.append(Enemy((randrange(200, 900), randrange(200, 700))))
+            enemy_sound.play()
 
     for sh in shoots:
         sh.otkat -= 1
