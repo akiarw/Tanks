@@ -484,12 +484,12 @@ class Bonus(pygame.sprite.Sprite):
 
 class MedComplect(Bonus):
     def __init__(self):
-        super().__init__(SubMenu.health_image)
+        super().__init__(pygame.transform.scale(Loads().load_image('health.png'), (20, 20)))
 
 
 class RepairComplect(Bonus):
     def __init__(self):
-        super().__init__(SubMenu.armor_image)
+        super().__init__(pygame.transform.scale(Loads().load_image('armor.png'), (20, 20)))
 
 
 walls = []
