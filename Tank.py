@@ -1,7 +1,7 @@
 import pygame
 import os
 import sys
-from random import randrange
+from random import randrange, choice
 
 FPS = 100
 tile_width = tile_height = 25
@@ -188,8 +188,8 @@ class SubMenu:
         pygame.draw.rect(screen, (255, 255, 255), (0, HEIGHT, WIDTH, 100), 4)
         self.text()
         self.draw_chrs()
-        icons.draw(screen)
         self.update_stats()
+        icons.draw(screen)
 
     def update_stats(self):
         self.health = tanks[0].health
@@ -318,7 +318,7 @@ class Bullet(pygame.sprite.Sprite):
 
 class Level:
 
-    def __init__(self, level):
+    def __init__(self):
         for y in range(len(level)):
             for x in range(len(level[y])):
                 if level[y][x] == '.':
@@ -334,6 +334,27 @@ class Level:
                 elif level[y][x] == '*':
                     stealth_group.add(Grass((x * tile_width, y * tile_height)))
         tank_sprites.add(tanks[0])
+
+    def generate_map(self):
+        global walls, walls_sprts, tiles_group, stealth_group
+        walls, walls_sprts = [], []
+        tiles_group, stealth_group = pygame.sprite.Group(), pygame.sprite.Group()
+        for y in range(0, HEIGHT // tile_height - 1, 2):
+            for x in range(0, WIDTH // tile_width - 1, 2):
+                if not self.is_on_tank((x * tile_width, y * tile_height)):
+                    znak = choice(['.', '.', '.', '#', '+', '*'])
+                else:
+                    znak = '.'
+                for i in ((0, 0), (1, 0), (0, 1), (1, 1)):
+                    level[y + i[1]][x + i[0]] = znak
+        Level()
+
+    def is_on_tank(self, pos):
+        for tank in tanks:
+            if tank.is_peres_rects([tank.rect.x, tank.rect.y, 30, 30],
+                                   [pos[0], pos[1], tile_width * 2, tile_height * 2]):
+                return True
+        return False
 
 
 class Tank(pygame.sprite.Sprite):
@@ -372,7 +393,7 @@ class Tank(pygame.sprite.Sprite):
 
     def is_on_grass(self, pos):
         for tank in tanks:
-            if self.is_peres_rects([pos[0], pos[1], 30, 30],
+            if self.is_peres_rects([pos[0], pos[1], tile_width, tile_height],
                                    [tank.rect.x, tank.rect.y, 30, 30]) and tank != self:
                 return False
 
@@ -448,6 +469,29 @@ class Enemy(Tank):
         self.move(self.evector)
 
 
+class Bonus(pygame.sprite.Sprite):
+    def __init__(self, image=None):
+        if image:
+            super().__init__(icons)
+            self.image = image
+            self.rect = self.image.get_rect()
+            self.rect.x, self.rect.y = WIDTH // 2, HEIGHT + 20
+
+    def choice_bonus(self):
+        action = choice([MedComplect, RepairComplect])
+        action()
+
+
+class MedComplect(Bonus):
+    def __init__(self):
+        super().__init__(SubMenu.health_image)
+
+
+class RepairComplect(Bonus):
+    def __init__(self):
+        super().__init__(SubMenu.armor_image)
+
+
 walls = []
 walls_sprts = []
 
@@ -455,14 +499,20 @@ respawn = []
 
 clock = pygame.time.Clock()
 
-level = Loads().load_level('level.txt')
-
 main_menu = MainMenu()
 tanks = [Tank((500, 500))]
-for i in range(3):
+for i in range(0):
     tanks.append(Enemy((randrange(200, 900), randrange(200, 700))))
 
-the_map = Level(level)
+level = []
+for y in range(HEIGHT // tile_height):
+    level.append([])
+    for x in range(WIDTH // tile_width):
+        level[y].append('.')
+print(len(level), len(level[0]))
+the_map = Level()
+the_map.generate_map()
+
 submenu = SubMenu()
 
 napr = 'up'
@@ -496,7 +546,7 @@ while in_menu:
 start_sound.stop()
 vector = None
 pygame.mixer.music.load('sounds/background.mp3')
-pygame.mixer.music.play()
+# pygame.mixer.music.play()
 
 while running:
 
@@ -539,6 +589,9 @@ while running:
 
     for exp in explosions_group:
         exp.new_step()
+
+    if not randrange(0, 100):
+        Bonus().choice_bonus()
 
     tiles_group.draw(screen)
     bullets_sprites.draw(screen)
