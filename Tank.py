@@ -307,8 +307,6 @@ class Bullet(pygame.sprite.Sprite):
                                    [tank.rect.x, tank.rect.y, 30, 30]) and tank != self.tank:
                 self.minus()
                 tank.get_damage(10)
-                if tank != tanks[0] and bonus:
-                    bonus.quest_completed()
 
     def minus(self):
         bullets_sprites.remove(self)
@@ -349,7 +347,7 @@ class Level:
         for y in range(0, HEIGHT // tile_height - 1, 2):
             for x in range(0, WIDTH // tile_width - 1, 2):
                 if not self.is_on_tank((x * tile_width, y * tile_height)):
-                    znak = choice(['.', '.', '.', '#', '+', '*'])
+                    znak = choice(['.', '.', '.', '.', '.', '.', '#', '#', '+', '*', '*'])
                 else:
                     znak = '.'
                 for i in ((0, 0), (1, 0), (0, 1), (1, 1)):
@@ -400,7 +398,7 @@ class Tank(pygame.sprite.Sprite):
 
     def is_on_grass(self, pos):
         for tank in tanks:
-            if self.is_peres_rects([pos[0], pos[1], tile_width, tile_height],
+            if self.is_peres_rects([pos[0], pos[1], 30, 30],
                                    [tank.rect.x, tank.rect.y, 30, 30]) and tank != self:
                 return False
 
@@ -431,6 +429,8 @@ class Tank(pygame.sprite.Sprite):
         tanks.remove(self)
         tanks[0].score += 1
         respawn.append(100)
+        if bonus:
+            bonus.quest_completed()
 
     def get_damage(self, damage):
         if self.armor > 0:
@@ -444,8 +444,8 @@ class Tank(pygame.sprite.Sprite):
 
 class Enemy(Tank):
 
-    def __init__(self, start_pos):
-        super().__init__(start_pos, 30, 0, 1)
+    def __init__(self):
+        super().__init__(self.spawn(), 30, 0, 1)
         self.evector = None
         self.otkat = 0
 
@@ -475,6 +475,13 @@ class Enemy(Tank):
 
         self.move(self.evector)
 
+    def spawn(self):
+        x, y = randrange(200, 900), randrange(200, 650)
+        while not self.is_on_grass((x, y)):
+            x, y = randrange(200, 900), randrange(200, 700)
+        enemy_sound.play()
+        return x, y
+
 
 class Bonus(pygame.sprite.Sprite):
     red_pos = 20
@@ -489,6 +496,7 @@ class Bonus(pygame.sprite.Sprite):
 
     def timer(self):
         self.time -= 1
+        return self.time
 
     def draw_time(self):
         self.percent = int(self.time / time_for_quest * 100)
@@ -509,6 +517,7 @@ class Bonus(pygame.sprite.Sprite):
             self.effect(tanks[0])
         else:
             pass
+        self.time = 0
 
 
 class MedComplect(Bonus):
@@ -550,7 +559,7 @@ main_menu = MainMenu()
 tanks = [Tank((500, 500))]
 
 for i in range(2):
-    tanks.append(Enemy((randrange(200, 900), randrange(200, 700))))
+    tanks.append(Enemy())
 
 level = []
 for y in range(HEIGHT // tile_height):
@@ -618,8 +627,7 @@ while running:
     for i in range(len(respawn)):
         respawn[i] -= 1
         if not respawn[i]:
-            tanks.append(Enemy((randrange(200, 900), randrange(200, 700))))
-            enemy_sound.play()
+            tanks.append(Enemy())
 
     for sh in shoots:
         sh.otkat -= 1
@@ -636,7 +644,7 @@ while running:
     for exp in explosions_group:
         exp.new_step()
 
-    if not randrange(0, 200) and not bonus_quest:
+    if not randrange(0, 100) and bonus_quest <= 0:
         bonus_quest = time_for_quest
         bonus = choice([MedComplect, RepairComplect])(time_for_quest)
 
@@ -649,8 +657,7 @@ while running:
     explosions_group.draw(screen)
 
     if bonus_quest > 0:
-        bonus_quest -= 1
-        bonus.timer()
+        bonus_quest = bonus.timer()
         bonus.draw_time()
     elif bonus:
         icons.remove(bonus)
