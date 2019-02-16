@@ -3,26 +3,35 @@ import os
 import sys
 from random import randrange, choice
 
-FPS = 100
-tile_width = tile_height = 25
-WIDTH, HEIGHT = 1000, 700
 
-tiles_group = pygame.sprite.Group()
-tank_sprites = pygame.sprite.Group()
-stealth_group = pygame.sprite.Group()
-bullets_sprites = pygame.sprite.Group()
-menu_group = pygame.sprite.Group()
-icons = pygame.sprite.Group()
-shoots = pygame.sprite.Group()
-explosions_group = pygame.sprite.Group()
+def restore_program_data():
+    global FPS, tile_width, tile_height, WIDTH, HEIGHT, tiles_group, tank_sprites, stealth_group, bullets_sprites
+    global menu_group, icons, shoots, explosions_group, screen, start_sound, end_sound, fire_sound, enemy_sound
+    FPS = 100
+    tile_width = tile_height = 25
+    WIDTH, HEIGHT = 1000, 700
 
-screen = pygame.display.set_mode((WIDTH, HEIGHT + 100))
-pygame.init()
+    tiles_group = pygame.sprite.Group()
+    tank_sprites = pygame.sprite.Group()
+    stealth_group = pygame.sprite.Group()
+    bullets_sprites = pygame.sprite.Group()
+    menu_group = pygame.sprite.Group()
+    icons = pygame.sprite.Group()
+    shoots = pygame.sprite.Group()
+    explosions_group = pygame.sprite.Group()
 
-start_sound = pygame.mixer.Sound("sounds/gamestart.ogg")
-end_sound = pygame.mixer.Sound("sounds/gameover.ogg")
-fire_sound = pygame.mixer.Sound("sounds/fire.ogg")
-enemy_sound = pygame.mixer.Sound("sounds/enemy.ogg")
+    screen = pygame.display.set_mode((WIDTH, HEIGHT + 100))
+    pygame.init()
+
+    start_sound = pygame.mixer.Sound("sounds/gamestart.ogg")
+    end_sound = pygame.mixer.Sound("sounds/gameover.ogg")
+    fire_sound = pygame.mixer.Sound("sounds/fire.ogg")
+    enemy_sound = pygame.mixer.Sound("sounds/enemy.ogg")
+    pygame.mixer.music.load("sounds/background.MP3")
+    pygame.mixer.music.set_volume(0.2)
+
+
+restore_program_data()
 
 
 class Loads:
@@ -103,7 +112,6 @@ class Empty(Tile):
 class MainMenu:
 
     def __init__(self):
-        start_sound.play()
         self.name = pygame.sprite.Sprite()
         self.name.image = Loads().load_image('Name.png')
         self.name.rect = self.name.image.get_rect()
@@ -154,10 +162,42 @@ class MainMenu:
         else:
             return 'exit'
 
+    def cycle(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == 32:
+                    act = main_menu.act()
+                    if act == 'start':
+                        game.in_menu = False
+                    elif act == 'exit':
+                        game.in_menu = game.running = False
+                        sys.exit()
+                elif event.key in [273, 274]:
+                    main_menu.change_cursor(game.vectors[event.key])
+
+            self.draw()
+
 
 class GameOver:
     def __init__(self):
+        pass
+
+    def cycle(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN:
+                game.in_go_menu = False
+
+            self.draw()
+
+    def draw(self):
         screen.blit(pygame.transform.scale(Loads().load_image('game_over.png'), (WIDTH, HEIGHT + 100)), (0, 0))
+        pygame.display.flip()
 
 
 class SubMenu:
@@ -435,7 +475,7 @@ class Tank(pygame.sprite.Sprite):
         Explosion((self.rect.x, self.rect.y))
         tank_sprites.remove(self)
         if self == game.tanks[0]:
-            sys.exit("game_over")
+            game.running = False
         game.tanks.remove(self)
         game.tanks[0].score += 1
         game.respawn.append(100)
@@ -581,6 +621,7 @@ class Game:
         pass
 
     def restore_data(self):
+        self.in_go_menu = True
         self.vector = None
         self.walls = []
         self.walls_sprts = []
@@ -622,6 +663,7 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+                sys.exit()
 
             if event.type == pygame.KEYDOWN:
                 if event.key == 32:
@@ -681,10 +723,30 @@ class Game:
             bullet.move()
 
 
-game = Game()
-game.restore_data()
-main_menu = MainMenu()
-while game.in_menu:
+while True:
+    game = Game()
+    game.restore_data()
+
+    main_menu = MainMenu()
+    game_over = GameOver()
+
+    start_sound.play()
+
     main_menu.draw()
-while game.running:
-    game.cycle()
+    while game.in_menu:
+        main_menu.cycle()
+
+    start_sound.stop()
+    pygame.mixer.music.play()
+
+    while game.running:
+        game.cycle()
+
+    pygame.mixer.music.stop()
+
+    end_sound.play()
+    game_over.draw()
+    while game.in_go_menu:
+        game_over.cycle()
+    end_sound.stop()
+    restore_program_data()
