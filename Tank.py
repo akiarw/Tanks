@@ -138,6 +138,7 @@ class MainMenu:
         screen.blit(self.exit, self.pos_exit)
         screen.blit(self.instruction, self.pos_instruction)
         menu_group.draw(screen)
+        pygame.display.flip()
 
     def change_cursor(self, vect):
         if vect == 'down':
@@ -592,7 +593,6 @@ class Game:
 
         self.clock = pygame.time.Clock()
 
-        self.main_menu = MainMenu()
         self.tanks = [Tank((500, 500))]
 
         for i in range(2):
@@ -683,5 +683,8 @@ class Game:
 
 game = Game()
 game.restore_data()
+main_menu = MainMenu()
+while game.in_menu:
+    main_menu.draw()
 while game.running:
     game.cycle()
