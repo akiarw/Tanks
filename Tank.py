@@ -186,6 +186,11 @@ class SubMenu:
     def draw(self):
         pygame.draw.rect(screen, (0, 0, 0), (0, HEIGHT, WIDTH, 100))
         pygame.draw.rect(screen, (255, 255, 255), (0, HEIGHT, WIDTH, 100), 4)
+        pygame.draw.rect(screen, (255, 255, 255), (WIDTH // 2 - 1, HEIGHT + 48, 202, 22), 2)
+        pygame.draw.line(screen, (255, 0, 0), (Bonus.red_pos * 2 + WIDTH // 2 - 1, HEIGHT + 43),
+                         (Bonus.red_pos * 2 + WIDTH // 2 - 1, HEIGHT + 75), 5)
+        pygame.draw.line(screen, (0, 255, 0), (Bonus.green_pos * 2 + WIDTH // 2 - 1, HEIGHT + 43),
+                         (Bonus.green_pos * 2 + WIDTH // 2 - 1, HEIGHT + 75), 5)
         self.text()
         self.draw_chrs()
         self.update_stats()
@@ -302,6 +307,8 @@ class Bullet(pygame.sprite.Sprite):
                                    [tank.rect.x, tank.rect.y, 30, 30]) and tank != self.tank:
                 self.minus()
                 tank.get_damage(10)
+                if tank != tanks[0] and bonus:
+                    bonus.quest_completed()
 
     def minus(self):
         bullets_sprites.remove(self)
@@ -470,26 +477,62 @@ class Enemy(Tank):
 
 
 class Bonus(pygame.sprite.Sprite):
-    def __init__(self, image=None):
-        if image:
-            super().__init__(icons)
-            self.image = image
-            self.rect = self.image.get_rect()
-            self.rect.x, self.rect.y = WIDTH // 2, HEIGHT + 20
+    red_pos = 20
+    green_pos = 75
 
-    def choice_bonus(self):
-        action = choice([MedComplect, RepairComplect])
-        action()
+    def __init__(self, time, image=Tile.tile_images['empty']):
+        super().__init__(icons)
+        self.image = image
+        self.rect = self.image.get_rect()
+        self.rect.x, self.rect.y = WIDTH // 2, HEIGHT + 20
+        self.time = time
+
+    def timer(self):
+        self.time -= 1
+
+    def draw_time(self):
+        self.percent = int(self.time / time_for_quest * 100)
+
+        if self.percent > self.green_pos:
+            color = (190, 190, 190)
+        elif self.percent > self.red_pos:
+            color = (0, 255, 0)
+        else:
+            color = (255, 0, 0)
+
+        pygame.draw.rect(screen, color, (WIDTH // 2, HEIGHT + 50, self.percent * 2, 20))
+
+    def quest_completed(self):
+        if self.percent > self.green_pos:
+            pass
+        elif self.percent > self.red_pos:
+            self.effect(tanks[0])
+        else:
+            pass
 
 
 class MedComplect(Bonus):
-    def __init__(self):
-        super().__init__(SubMenu.health_image)
+    def __init__(self, time):
+        super().__init__(time, SubMenu.health_image.image)
+
+    def effect(self, objs):
+        try:
+            for tank in objs:
+                tank.health = 100
+        except TypeError:
+            objs.health = 100
 
 
 class RepairComplect(Bonus):
-    def __init__(self):
-        super().__init__(SubMenu.armor_image)
+    def __init__(self, time):
+        super().__init__(time, SubMenu.armor_image.image)
+
+    def effect(self, objs):
+        try:
+            for tank in objs:
+                tank.armor = 100
+        except TypeError:
+            objs.armor = 100
 
 
 walls = []
@@ -497,11 +540,16 @@ walls_sprts = []
 
 respawn = []
 
+bonus_quest = 0
+bonus = None
+time_for_quest = 1000
+
 clock = pygame.time.Clock()
 
 main_menu = MainMenu()
 tanks = [Tank((500, 500))]
-for i in range(0):
+
+for i in range(2):
     tanks.append(Enemy((randrange(200, 900), randrange(200, 700))))
 
 level = []
@@ -509,7 +557,6 @@ for y in range(HEIGHT // tile_height):
     level.append([])
     for x in range(WIDTH // tile_width):
         level[y].append('.')
-print(len(level), len(level[0]))
 the_map = Level()
 the_map.generate_map()
 
@@ -546,7 +593,7 @@ while in_menu:
 start_sound.stop()
 vector = None
 pygame.mixer.music.load('sounds/background.mp3')
-# pygame.mixer.music.play()
+pygame.mixer.music.play()
 
 while running:
 
@@ -566,8 +613,6 @@ while running:
             if vectors.get(event.key, None) == vector and vector:
                 napr = vector
                 vector = None
-
-    submenu.draw()
 
     for i in range(len(respawn)):
         respawn[i] -= 1
@@ -590,15 +635,24 @@ while running:
     for exp in explosions_group:
         exp.new_step()
 
-    if not randrange(0, 100):
-        Bonus().choice_bonus()
+    if not randrange(0, 200) and not bonus_quest:
+        bonus_quest = time_for_quest
+        bonus = choice([MedComplect, RepairComplect])(time_for_quest)
 
+    submenu.draw()
     tiles_group.draw(screen)
     bullets_sprites.draw(screen)
     tank_sprites.draw(screen)
     stealth_group.draw(screen)
     shoots.draw(screen)
     explosions_group.draw(screen)
+
+    if bonus_quest > 0:
+        bonus_quest -= 1
+        bonus.timer()
+        bonus.draw_time()
+    elif bonus:
+        icons.remove(bonus)
 
     pygame.display.flip()
     clock.tick(FPS)
