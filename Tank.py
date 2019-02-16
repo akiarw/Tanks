@@ -75,7 +75,7 @@ class Tile(pygame.sprite.Sprite):
         if not self.armor:
             Explosion((self.rect.x, self.rect.y))
             self = Empty((self.rect.x, self.rect.y))
-            walls[num] = [-tile_width, -tile_height]
+            game.walls[num] = [-tile_width, -tile_height]
 
 
 class Grass(Tile):
@@ -154,6 +154,11 @@ class MainMenu:
             return 'exit'
 
 
+class GameOver:
+    def __init__(self):
+        screen.blit(pygame.transform.scale(Loads().load_image('game_over.png'), (WIDTH, HEIGHT + 100)), (0, 0))
+
+
 class SubMenu:
     health_image = pygame.sprite.Sprite()
     health_image.image = pygame.transform.scale(Loads().load_image('health.png'), (20, 20))
@@ -197,9 +202,9 @@ class SubMenu:
         icons.draw(screen)
 
     def update_stats(self):
-        self.health = tanks[0].health
-        self.armor = tanks[0].armor
-        self.score = tanks[0].score
+        self.health = game.tanks[0].health
+        self.armor = game.tanks[0].armor
+        self.score = game.tanks[0].score
         self.text_score = self.__font.render(str(self.score), 1, (255, 255, 255))
 
 
@@ -267,13 +272,14 @@ class Bullet(pygame.sprite.Sprite):
         'left': pygame.transform.rotate(base_image, 90)
     }
 
-    def __init__(self, vector, tank):
+    def __init__(self, vector, tank, damage):
         super().__init__(bullets_sprites)
         self.tank = tank
         self.vector = vector
         self.speed = 10
         self.image = self.images[vector]
         self.rect = self.image.get_rect()
+        self.damage = damage
 
     def shoot(self, tank_pos):
         self.rect.x, self.rect.y = tank_pos
@@ -296,25 +302,24 @@ class Bullet(pygame.sprite.Sprite):
             self.minus()
 
     def is_flown(self):
-        for i in range(len(walls)):
+        for i in range(len(game.walls)):
             if Tank.is_peres_rects(None, [self.rect.x, self.rect.y, 5, 5],
-                                   [walls[i][0], walls[i][1], tile_width, tile_height]):
+                                   [game.walls[i][0], game.walls[i][1], tile_width, tile_height]):
                 self.minus()
                 return i
 
-        for tank in tanks:
+        for tank in game.tanks:
             if Tank.is_peres_rects(None, [self.rect.x, self.rect.y, 5, 5],
                                    [tank.rect.x, tank.rect.y, 30, 30]) and tank != self.tank:
                 self.minus()
-                tank.get_damage(10)
-                if tank != tanks[0] and bonus:
-                    bonus.quest_completed()
+                tank.get_damage(self.damage)
+                return tank
 
     def minus(self):
         bullets_sprites.remove(self)
 
     def is_on_grass(self, pos):
-        for wall in walls:
+        for wall in game.walls:
             if self.is_peres_rects([pos[0], pos[1], 30, 30],
                                    [wall[0], wall[1], tile_width, tile_height]):
                 return False
@@ -326,21 +331,21 @@ class Bullet(pygame.sprite.Sprite):
 class Level:
 
     def __init__(self):
-        for y in range(len(level)):
-            for x in range(len(level[y])):
-                if level[y][x] == '.':
+        for y in range(len(game.level)):
+            for x in range(len(game.level[y])):
+                if game.level[y][x] == '.':
                     tiles_group.add(Empty((x * tile_width, y * tile_height)))
-                elif level[y][x] == '#':
+                elif game.level[y][x] == '#':
                     tiles_group.add(Bricks((x * tile_width, y * tile_height)))
-                    walls.append([x * tile_width, y * tile_height])
+                    game.walls.append([x * tile_width, y * tile_height])
                     walls_sprts.append(Bricks((x * tile_width, y * tile_height)))
-                elif level[y][x] == '+':
+                elif game.level[y][x] == '+':
                     tiles_group.add(Metal((x * tile_width, y * tile_height)))
-                    walls.append([x * tile_width, y * tile_height])
+                    game.walls.append([x * tile_width, y * tile_height])
                     walls_sprts.append(Metal((x * tile_width, y * tile_height)))
-                elif level[y][x] == '*':
+                elif game.level[y][x] == '*':
                     stealth_group.add(Grass((x * tile_width, y * tile_height)))
-        tank_sprites.add(tanks[0])
+        tank_sprites.add(game.tanks[0])
 
     def generate_map(self):
         global walls, walls_sprts, tiles_group, stealth_group
@@ -349,15 +354,15 @@ class Level:
         for y in range(0, HEIGHT // tile_height - 1, 2):
             for x in range(0, WIDTH // tile_width - 1, 2):
                 if not self.is_on_tank((x * tile_width, y * tile_height)):
-                    znak = choice(['.', '.', '.', '#', '+', '*'])
+                    znak = choice(['.', '.', '.', '.', '.', '.', '#', '#', '+', '*', '*'])
                 else:
                     znak = '.'
                 for i in ((0, 0), (1, 0), (0, 1), (1, 1)):
-                    level[y + i[1]][x + i[0]] = znak
+                    game.level[y + i[1]][x + i[0]] = znak
         Level()
 
     def is_on_tank(self, pos):
-        for tank in tanks:
+        for tank in game.tanks:
             if tank.is_peres_rects([tank.rect.x, tank.rect.y, 30, 30],
                                    [pos[0], pos[1], tile_width * 2, tile_height * 2]):
                 return True
@@ -370,12 +375,13 @@ class Tank(pygame.sprite.Sprite):
     tank_image_left = pygame.transform.rotate(tank_image_down, 270)
     tank_image_right = pygame.transform.rotate(tank_image_down, 90)
 
-    def __init__(self, start_coords, health=100, armor=100, speed=2):
+    def __init__(self, start_coords, health=100, armor=100, speed=2, damage=10):
         super().__init__(tank_sprites)
         self.score = 0
         self.speed = speed
         self.health = health
         self.armor = armor
+        self.damage = damage
         self.image = self.tank_image_up
         self.rect = self.image.get_rect()
         self.rect.x, self.rect.y = start_coords
@@ -399,12 +405,13 @@ class Tank(pygame.sprite.Sprite):
                 self.rect.y += self.speed
 
     def is_on_grass(self, pos):
-        for tank in tanks:
-            if self.is_peres_rects([pos[0], pos[1], tile_width, tile_height],
+        global game
+        for tank in game.tanks:
+            if self.is_peres_rects([pos[0], pos[1], 30, 30],
                                    [tank.rect.x, tank.rect.y, 30, 30]) and tank != self:
                 return False
 
-        for wall in walls:
+        for wall in game.walls:
             if self.is_peres_rects([pos[0], pos[1], 30, 30],
                                    [wall[0], wall[1], tile_width, tile_height]):
                 return False
@@ -426,11 +433,13 @@ class Tank(pygame.sprite.Sprite):
     def destroy(self):
         Explosion((self.rect.x, self.rect.y))
         tank_sprites.remove(self)
-        if self == tanks[0]:
+        if self == game.tanks[0]:
             sys.exit("game_over")
-        tanks.remove(self)
-        tanks[0].score += 1
-        respawn.append(100)
+        game.tanks.remove(self)
+        game.tanks[0].score += 1
+        game.respawn.append(100)
+        if game.bonus:
+            game.bonus.quest_completed()
 
     def get_damage(self, damage):
         if self.armor > 0:
@@ -441,13 +450,22 @@ class Tank(pygame.sprite.Sprite):
         if self.health <= 0:
             self.destroy()
 
+    def is_hided(self):
+        for bush in stealth_group:
+            if bush.rect.x < self.rect.x < bush.rect.x + tile_width * 2 - 30 and \
+                    bush.rect.y < self.rect.y < bush.rect.y + tile_height * 2 - 30:
+                return True
+        return False
+
 
 class Enemy(Tank):
-
-    def __init__(self, start_pos):
-        super().__init__(start_pos, 30, 0, 1)
+    def __init__(self, target):
+        super().__init__(self.spawn(), 30, 0, 1)
         self.evector = None
         self.otkat = 0
+        self.damage = 10
+        self.target = target
+        self.ox, self.oy = 100, 100
 
     def vect_change(self, ox, oy):
         if abs(ox) > abs(oy):
@@ -462,18 +480,26 @@ class Enemy(Tank):
                 self.evector = 'down'
 
     def action(self):
-        ox = self.rect.x - tanks[0].rect.x
-        oy = self.rect.y - tanks[0].rect.y
-        if ox in range(-15, 16) or oy in range(-15, 16):
-            self.vect_change(ox, oy)
+        if not self.target.is_hided():
+            self.ox = self.rect.x - self.target.rect.x
+            self.oy = self.rect.y - self.target.rect.y
+        if self.ox in range(-15, 16) or self.oy in range(-15, 16):
+            self.vect_change(self.ox, self.oy)
             if self.otkat < 0:
-                Bullet(self.evector, self).shoot((self.rect.x + 13, self.rect.y + 13))
+                Bullet(self.evector, self, self.damage).shoot((self.rect.x + 13, self.rect.y + 13))
                 self.otkat = 35
             self.evector = None
         if not self.evector:
-            self.vect_change(ox, oy)
+            self.vect_change(self.ox, self.oy)
 
         self.move(self.evector)
+
+    def spawn(self):
+        x, y = randrange(200, 900), randrange(200, 650)
+        while not self.is_on_grass((x, y)):
+            x, y = randrange(200, 900), randrange(200, 700)
+        enemy_sound.play()
+        return x, y
 
 
 class Bonus(pygame.sprite.Sprite):
@@ -489,9 +515,10 @@ class Bonus(pygame.sprite.Sprite):
 
     def timer(self):
         self.time -= 1
+        return self.time
 
     def draw_time(self):
-        self.percent = int(self.time / time_for_quest * 100)
+        self.percent = int(self.time / game.time_for_quest * 100)
 
         if self.percent > self.green_pos:
             color = (190, 190, 190)
@@ -506,9 +533,11 @@ class Bonus(pygame.sprite.Sprite):
         if self.percent > self.green_pos:
             pass
         elif self.percent > self.red_pos:
-            self.effect(tanks[0])
+            self.effect(game.tanks[0])
         else:
             pass
+        self.time = 0
+        icons.remove(self)
 
 
 class MedComplect(Bonus):
@@ -535,126 +564,124 @@ class RepairComplect(Bonus):
             objs.armor = 100
 
 
-walls = []
-walls_sprts = []
+class HackBullet(Bonus):
+    image = pygame.transform.scale(Loads().load_image('hack.png'), (20, 20))
 
-respawn = []
+    def __init__(self, time):
+        super().__init__(time, self.image)
 
-bonus_quest = 0
-bonus = None
-time_for_quest = 1000
+    def effect(self, tank):
+        pass
 
-clock = pygame.time.Clock()
 
-main_menu = MainMenu()
-tanks = [Tank((500, 500))]
+class Game:
 
-for i in range(2):
-    tanks.append(Enemy((randrange(200, 900), randrange(200, 700))))
+    def __init__(self):
+        pass
 
-level = []
-for y in range(HEIGHT // tile_height):
-    level.append([])
-    for x in range(WIDTH // tile_width):
-        level[y].append('.')
-the_map = Level()
-the_map.generate_map()
+    def restore_data(self):
+        self.vector = None
+        self.walls = []
+        self.walls_sprts = []
 
-submenu = SubMenu()
+        self.respawn = []
 
-napr = 'up'
-vectors = {
-    273: 'up',
-    274: 'down',
-    275: 'right',
-    276: 'left'
-}
-running = True
-in_menu = True
+        self.bonus_quest = 0
+        self.bonus = None
+        self.time_for_quest = 1000
 
-while in_menu:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            in_menu = running = False
+        self.clock = pygame.time.Clock()
 
-        if event.type == pygame.KEYDOWN:
-            if event.key == 32:
-                act = main_menu.act()
-                if act == 'start':
-                    in_menu = False
-                elif act == 'exit':
-                    in_menu = running = False
-            elif event.key in [273, 274]:
-                main_menu.change_cursor(vectors[event.key])
+        self.main_menu = MainMenu()
+        self.tanks = [Tank((500, 500))]
 
-    main_menu.draw()
-    pygame.display.flip()
+        for i in range(2):
+            self.tanks.append(Enemy(self.tanks[0]))
 
-start_sound.stop()
-vector = None
-pygame.mixer.music.load('sounds/background.mp3')
-pygame.mixer.music.play()
+        self.level = []
+        for y in range(HEIGHT // tile_height):
+            self.level.append([])
+            for x in range(WIDTH // tile_width):
+                self.level[y].append('.')
+        self.the_map = Level()
+        self.the_map.generate_map()
 
-while running:
+        self.submenu = SubMenu()
 
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+        self.napr = 'up'
+        self.vectors = {
+            273: 'up',
+            274: 'down',
+            275: 'right',
+            276: 'left'
+        }
+        self.running = True
+        self.in_menu = True
 
-        if event.type == pygame.KEYDOWN:
-            if event.key == 32:
-                fire_sound.play()
-                Shoot().fir((tanks[0].rect.x, tanks[0].rect.y), vector if vector else napr)
-                Bullet(vector if vector else napr, tanks[0]).shoot((tanks[0].rect.x + 13, tanks[0].rect.y + 13))
-            else:
-                vector = vectors.get(event.key, None)
+    def cycle(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
 
-        if event.type == pygame.KEYUP:
-            if vectors.get(event.key, None) == vector and vector:
-                napr = vector
-                vector = None
+            if event.type == pygame.KEYDOWN:
+                if event.key == 32:
+                    fire_sound.play()
+                    Shoot().fir((self.tanks[0].rect.x, self.tanks[0].rect.y), self.vector if self.vector else self.napr)
+                    Bullet(self.vector if self.vector else self.napr, self.tanks[0], self.tanks[0].damage).shoot(
+                        (self.tanks[0].rect.x + 13, self.tanks[0].rect.y + 13))
+                else:
+                    self.vector = self.vectors.get(event.key, None)
 
-    for i in range(len(respawn)):
-        respawn[i] -= 1
-        if not respawn[i]:
-            tanks.append(Enemy((randrange(200, 900), randrange(200, 700))))
-            enemy_sound.play()
+            if event.type == pygame.KEYUP:
+                if self.vectors.get(event.key, None) == self.vector and self.vector:
+                    self.napr = self.vector
+                    self.vector = None
 
-    for sh in shoots:
-        sh.otkat -= 1
-        if sh.otkat < 0:
-            shoots.remove(sh)
+        for i in range(len(self.respawn)):
+            self.respawn[i] -= 1
+            if not self.respawn[i]:
+                self.tanks.append(Enemy(self.tanks[0]))
 
-    for tank in tanks[1:]:
-        tank.action()
-        tank.otkat -= 1
+        for sh in shoots:
+            sh.otkat -= 1
+            if sh.otkat < 0:
+                shoots.remove(sh)
 
-    if vector:
-        tanks[0].move(vector)
+        for tank in self.tanks[1:]:
+            tank.action()
+            tank.otkat -= 1
 
-    for exp in explosions_group:
-        exp.new_step()
+        if self.vector:
+            self.tanks[0].move(self.vector)
 
-    if not randrange(0, 200) and not bonus_quest:
-        bonus_quest = time_for_quest
-        bonus = choice([MedComplect, RepairComplect])(time_for_quest)
+        for exp in explosions_group:
+            exp.new_step()
 
-    submenu.draw()
-    tiles_group.draw(screen)
-    bullets_sprites.draw(screen)
-    tank_sprites.draw(screen)
-    stealth_group.draw(screen)
-    shoots.draw(screen)
-    explosions_group.draw(screen)
+        self.submenu.draw()
+        tiles_group.draw(screen)
+        bullets_sprites.draw(screen)
+        tank_sprites.draw(screen)
+        shoots.draw(screen)
+        explosions_group.draw(screen)
+        stealth_group.draw(screen)
 
-    if bonus_quest > 0:
-        bonus_quest -= 1
-        bonus.timer()
-        bonus.draw_time()
-    elif bonus:
-        icons.remove(bonus)
+        if self.bonus_quest <= 0:
+            if self.bonus:
+                self.bonus.quest_completed()
+            if not randrange(0, 100):
+                self.bonus_quest = self.time_for_quest
+                self.bonus = choice([MedComplect, RepairComplect])(self.time_for_quest)
+        elif self.bonus_quest > 0:
+            self.bonus_quest = self.bonus.timer()
+            self.bonus.draw_time()
 
-    pygame.display.flip()
-    clock.tick(FPS)
-    for bullet in bullets_sprites:
-        bullet.move()
+        pygame.display.flip()
+        self.clock.tick(FPS)
+        for bullet in bullets_sprites:
+            bullet.move()
+
+
+game = Game()
+game.restore_data()
+while game.running:
+    game.cycle()
