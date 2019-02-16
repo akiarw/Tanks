@@ -1,6 +1,7 @@
 import pygame
 import os
 import sys
+import time
 from random import randrange, choice
 
 
@@ -51,16 +52,9 @@ class Loads:
             image.set_colorkey(colorkey)
         return image
 
-    def load_level(self, filename):
-        filename = "data/" + filename
-        with open(filename, 'r') as mapFile:
-            level_map = [line.strip() for line in mapFile]
-
-        max_width = WIDTH // tile_width
-        max_height = HEIGHT // tile_height
-
-        return list(map(lambda x: [i for i in x.ljust(max_width, '.')], level_map)) + [['.'] * max_width] * (
-                max_height - len(level_map))
+    def load_records(self):
+        # filename = "data/records.json"
+        pass
 
 
 class Tile(pygame.sprite.Sprite):
@@ -183,20 +177,27 @@ class MainMenu:
 
 class GameOver:
     def __init__(self):
-        pass
+        self.font = pygame.font.Font(None, 50)
+        self.iters = 0
 
     def cycle(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                sys.exit()
+        self.iters += 1
+        if self.iters > 200:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    sys.exit()
 
-            if event.type == pygame.KEYDOWN:
-                game.in_go_menu = False
+                if event.type == pygame.KEYDOWN:
+                    game.in_go_menu = False
 
-            self.draw()
+        self.draw()
 
     def draw(self):
-        screen.blit(pygame.transform.scale(Loads().load_image('game_over.png'), (WIDTH, HEIGHT + 100)), (0, 0))
+        screen.fill((0, 0, 0))
+        screen.blit(pygame.transform.scale(Loads().load_image('game_over.png'), (WIDTH, HEIGHT - 100)), (0, -100))
+        screen.blit(self.font.render('Your score:', 1, (255, 255, 255)), (WIDTH // 2 - 150, HEIGHT // 2 + 100))
+        screen.blit(pygame.font.Font(None, 100).render(str(game.submenu.score), 1, (255, 255, 255)),
+                    (WIDTH // 2 + 80, HEIGHT // 2 + 80))
         pygame.display.flip()
 
 
@@ -212,9 +213,10 @@ class SubMenu:
     armor_image.rect.x, armor_image.rect.y = 20, HEIGHT + 50
 
     def __init__(self):
-        self.__font = pygame.font.Font(None, 100)
+        self.font = pygame.font.Font(None, 100)
         self.update_stats()
         self.score_pos = (WIDTH - 200, HEIGHT + 20)
+        self.score = 0
 
         icons.add(self.health_image, self.armor_image)
 
@@ -246,7 +248,7 @@ class SubMenu:
         self.health = game.tanks[0].health
         self.armor = game.tanks[0].armor
         self.score = game.tanks[0].score
-        self.text_score = self.__font.render(str(self.score), 1, (255, 255, 255))
+        self.text_score = self.font.render(str(self.score), 1, (255, 255, 255))
 
 
 class Explosion(pygame.sprite.Sprite):
