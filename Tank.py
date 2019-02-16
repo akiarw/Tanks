@@ -593,7 +593,8 @@ while in_menu:
 start_sound.stop()
 vector = None
 pygame.mixer.music.load('sounds/background.mp3')
-pygame.mixer.music.play()
+pygame.mixer.music.set_volume(0.05)
+pygame.mixer.music.play(10)
 
 while running:
 
