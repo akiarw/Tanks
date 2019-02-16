@@ -576,6 +576,7 @@ class Bonus(pygame.sprite.Sprite):
         elif self.percent > self.red_pos:
             self.effect(game.tanks[0])
         else:
+            # self.effect(game.tanks[1:])
             pass
         self.time = 0
         icons.remove(self)
@@ -588,7 +589,7 @@ class MedComplect(Bonus):
     def effect(self, objs):
         try:
             for tank in objs:
-                tank.health = 100
+                tank.health = 50
         except TypeError:
             objs.health = 100
 
@@ -600,7 +601,7 @@ class RepairComplect(Bonus):
     def effect(self, objs):
         try:
             for tank in objs:
-                tank.armor = 100
+                tank.armor = 50
         except TypeError:
             objs.armor = 100
 
