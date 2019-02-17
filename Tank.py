@@ -53,11 +53,11 @@ class Loads:
 
     def load_records(self):
         with open("data/records.txt", 'r', encoding='utf8') as filename:
-            return filename.read().split()
+            return list(map(int, filename.read().split()))
 
     def save_result(self):
         with open("data/records.txt", 'w', encoding='utf8') as filename:
-            filename.write(' '.join(game.records))
+            filename.write(' '.join(list(map(str, game.records))))
 
 
 class Tile(pygame.sprite.Sprite):
@@ -213,7 +213,7 @@ class GameOver:
 
     def add_to_high_scores(self):
         if game.submenu.score:
-            game.records.append(str(game.submenu.score))
+            game.records.append(game.submenu.score)
             game.records.sort(reverse=True)
             Loads().save_result()
 
@@ -372,8 +372,10 @@ class Bullet(pygame.sprite.Sprite):
             if Tank.is_peres_rects(None, [self.rect.x, self.rect.y, 5, 5],
                                    [tank.rect.x, tank.rect.y, 30, 30]) and tank != self.tank:
                 self.minus()
-                tank.get_damage(self.damage)
-                return tank
+                self.effect(tank)
+
+    def effect(self, tank):
+        tank.get_damage(self.damage)
 
     def minus(self):
         bullets_sprites.remove(self)
@@ -521,6 +523,7 @@ class Tank(pygame.sprite.Sprite):
 class Enemy(Tank):
     def __init__(self, target):
         super().__init__(self.spawn(), 30, 0, 1)
+        self.last_coords = [None] * 5
         self.evector = None
         self.otkat = 0
         self.damage = 10
@@ -543,9 +546,9 @@ class Enemy(Tank):
         if not self.target.is_hided():
             self.ox = self.rect.x - self.target.rect.x
             self.oy = self.rect.y - self.target.rect.y
-        if self.ox in range(-15, 16) or self.oy in range(-15, 16):
+        if self.ox in range(-15, 16) or self.oy in range(-15, 16) or not self.is_moving():
             self.vect_change(self.ox, self.oy)
-            if self.otkat < 0:
+            if self.otkat < 0 and self.evector:
                 Bullet(self.evector, self, self.damage).shoot((self.rect.x + 13, self.rect.y + 13))
                 self.otkat = 35
             self.evector = None
@@ -560,6 +563,14 @@ class Enemy(Tank):
             x, y = randrange(200, 900), randrange(200, 700)
         enemy_sound.play()
         return x, y
+
+    def is_moving(self):
+        self.last_coords.append([self.rect.x, self.rect.y])
+        self.last_coords.pop(0)
+        for crds in self.last_coords:
+            if crds != self.last_coords[0]:
+                return True
+        return False
 
 
 class Bonus(pygame.sprite.Sprite):
@@ -626,23 +637,13 @@ class RepairComplect(Bonus):
             objs.armor = 100
 
 
-class HackBullet(Bonus):
-    image = pygame.transform.scale(Loads().load_image('hack.png'), (20, 20))
-
-    def __init__(self, time):
-        super().__init__(time, self.image)
-
-    def effect(self, tank):
-        pass
-
-
 class Game:
 
     def __init__(self):
         pass
 
     def restore_data(self):
-        self.tanks_count = 5
+        self.tanks_count = 2
         self.records = Loads().load_records()
         self.in_go_menu = True
         self.vector = None
