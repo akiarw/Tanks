@@ -1,7 +1,6 @@
 import pygame
 import os
 import sys
-import time
 from random import randrange, choice
 
 
@@ -53,8 +52,12 @@ class Loads:
         return image
 
     def load_records(self):
-        # filename = "data/records.json"
-        pass
+        with open("data/records.txt", 'r', encoding='utf8') as filename:
+            return filename.read().split()
+
+    def save_result(self):
+        with open("data/records.txt", 'w', encoding='utf8') as filename:
+            filename.write(' '.join(game.records))
 
 
 class Tile(pygame.sprite.Sprite):
@@ -116,7 +119,7 @@ class MainMenu:
         self.play = self.__font.render("Play", 1, (255, 255, 255))
         self.pos_play = (400, 400)
 
-        self.create = self.__font.render("Create player's map", 1, (255, 255, 255))
+        self.create = self.__font.render("Credits", 1, (255, 255, 255))
         self.pos_create = (self.pos_play[0], self.pos_play[1] + 50)
 
         self.exit = self.__font.render("Exit", 1, (255, 255, 255))
@@ -195,10 +198,24 @@ class GameOver:
     def draw(self):
         screen.fill((0, 0, 0))
         screen.blit(pygame.transform.scale(Loads().load_image('game_over.png'), (WIDTH, HEIGHT - 100)), (0, -100))
-        screen.blit(self.font.render('Your score:', 1, (255, 255, 255)), (WIDTH // 2 - 150, HEIGHT // 2 + 100))
+        screen.blit(self.font.render('Your score:', 1, (255, 255, 255)), (WIDTH // 4, HEIGHT // 2 + 100))
         screen.blit(pygame.font.Font(None, 100).render(str(game.submenu.score), 1, (255, 255, 255)),
-                    (WIDTH // 2 + 80, HEIGHT // 2 + 80))
+                    (WIDTH // 4 + 200, HEIGHT // 2 + 80))
+        screen.blit(self.font.render('Best Scores', 1, (255, 255, 255)), (WIDTH - 300, HEIGHT // 2 + 50))
+        for i in range(10):
+            try:
+                record = '#{} - {}'.format(i + 1, game.records[i])
+            except IndexError:
+                record = '#{} - ////'.format(i + 1)
+            screen.blit(pygame.font.Font(None, 35).render(str(record), 1, (255, 255, 255)),
+                        (WIDTH - 300, HEIGHT // 2 + 100 + 20 * i))
         pygame.display.flip()
+
+    def add_to_high_scores(self):
+        if game.submenu.score:
+            game.records.append(str(game.submenu.score))
+            game.records.sort(reverse=True)
+            Loads().save_result()
 
 
 class SubMenu:
@@ -235,7 +252,7 @@ class SubMenu:
         pygame.draw.rect(screen, (0, 0, 0), (0, HEIGHT, WIDTH, 100))
         pygame.draw.rect(screen, (255, 255, 255), (0, HEIGHT, WIDTH, 100), 4)
         pygame.draw.rect(screen, (255, 255, 255), (WIDTH // 2 - 1, HEIGHT + 48, 202, 22), 2)
-        pygame.draw.line(screen, (255, 0, 0), (Bonus.red_pos * 2 + WIDTH // 2 - 1, HEIGHT + 43),
+        pygame.draw.line(screen, (0, 255, 0), (Bonus.red_pos * 2 + WIDTH // 2 - 1, HEIGHT + 43),
                          (Bonus.red_pos * 2 + WIDTH // 2 - 1, HEIGHT + 75), 5)
         pygame.draw.line(screen, (0, 255, 0), (Bonus.green_pos * 2 + WIDTH // 2 - 1, HEIGHT + 43),
                          (Bonus.green_pos * 2 + WIDTH // 2 - 1, HEIGHT + 75), 5)
@@ -546,7 +563,7 @@ class Enemy(Tank):
 
 
 class Bonus(pygame.sprite.Sprite):
-    red_pos = 20
+    red_pos = 40
     green_pos = 75
 
     def __init__(self, time, image=Tile.tile_images['empty']):
@@ -563,25 +580,26 @@ class Bonus(pygame.sprite.Sprite):
     def draw_time(self):
         self.percent = int(self.time / game.time_for_quest * 100)
 
-        if self.percent > self.green_pos:
-            color = (190, 190, 190)
-        elif self.percent > self.red_pos:
+        if self.green_pos > self.percent > self.red_pos:
             color = (0, 255, 0)
         else:
-            color = (255, 0, 0)
+            color = (190, 190, 190)
 
         pygame.draw.rect(screen, color, (WIDTH // 2, HEIGHT + 50, self.percent * 2, 20))
 
     def quest_completed(self):
-        if self.percent > self.green_pos:
+        try:
+            if self.percent > self.green_pos:
+                pass
+            elif self.percent > self.red_pos:
+                self.effect(game.tanks[0])
+            else:
+                # self.effect(game.tanks[1:])
+                pass
+            self.time = 0
+            icons.remove(self)
+        except AttributeError:
             pass
-        elif self.percent > self.red_pos:
-            self.effect(game.tanks[0])
-        else:
-            # self.effect(game.tanks[1:])
-            pass
-        self.time = 0
-        icons.remove(self)
 
 
 class MedComplect(Bonus):
@@ -624,6 +642,8 @@ class Game:
         pass
 
     def restore_data(self):
+        self.tanks_count = 5
+        self.records = Loads().load_records()
         self.in_go_menu = True
         self.vector = None
         self.walls = []
@@ -639,7 +659,7 @@ class Game:
 
         self.tanks = [Tank((500, 500))]
 
-        for i in range(2):
+        for i in range(self.tanks_count):
             self.tanks.append(Enemy(self.tanks[0]))
 
         self.level = []
@@ -713,7 +733,7 @@ class Game:
         if self.bonus_quest <= 0:
             if self.bonus:
                 self.bonus.quest_completed()
-            if not randrange(0, 100):
+            if not randrange(0, 1000):
                 self.bonus_quest = self.time_for_quest
                 self.bonus = choice([MedComplect, RepairComplect])(self.time_for_quest)
         elif self.bonus_quest > 0:
@@ -749,6 +769,7 @@ while True:
 
     end_sound.play()
     game_over.draw()
+    game_over.add_to_high_scores()
     while game.in_go_menu:
         game_over.cycle()
     end_sound.stop()
