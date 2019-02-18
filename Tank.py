@@ -125,7 +125,7 @@ class MainMenu:
         self.exit = self.__font.render("Exit", 1, (255, 255, 255))
         self.pos_exit = (self.pos_play[0], self.pos_play[1] + 100)
 
-        self.instruction = self.__font.render("*instructions*", 1, (255, 255, 255))
+        self.instruction = self.__font.render("", 1, (255, 255, 255))
         self.pos_instruction = (800, 200)
 
         self.arrow = pygame.sprite.Sprite()
@@ -252,18 +252,19 @@ class SubMenu:
         pygame.draw.rect(screen, (0, 0, 0), (0, HEIGHT, WIDTH, 100))
         pygame.draw.rect(screen, (255, 255, 255), (0, HEIGHT, WIDTH, 100), 4)
         pygame.draw.rect(screen, (255, 255, 255), (WIDTH // 2 - 1, HEIGHT + 48, 202, 22), 2)
-        pygame.draw.line(screen, (0, 255, 0), (Bonus.red_pos * 2 + WIDTH // 2 - 1, HEIGHT + 43),
-                         (Bonus.red_pos * 2 + WIDTH // 2 - 1, HEIGHT + 75), 5)
-        pygame.draw.line(screen, (0, 255, 0), (Bonus.green_pos * 2 + WIDTH // 2 - 1, HEIGHT + 43),
-                         (Bonus.green_pos * 2 + WIDTH // 2 - 1, HEIGHT + 75), 5)
+
         self.text()
         self.draw_chrs()
         self.update_stats()
         icons.draw(screen)
 
+    def draw_gran(self):
+        pygame.draw.rect(screen, (0, 255, 0),
+                         (WIDTH // 2 - 2, HEIGHT + 48, game.bonus.green_pos * 2, 22), 2)
+
     def update_stats(self):
-        self.health = game.tanks[0].health
-        self.armor = game.tanks[0].armor
+        self.health = int(game.tanks[0].health)
+        self.armor = int(game.tanks[0].armor)
         self.score = game.tanks[0].score
         self.text_score = self.font.render(str(self.score), 1, (255, 255, 255))
 
@@ -498,6 +499,10 @@ class Tank(pygame.sprite.Sprite):
         if self == game.tanks[0]:
             game.running = False
         game.tanks.remove(self)
+
+        game.injure = False
+        game.corrosion = False
+
         game.tanks[0].score += 1
         game.respawn.append(100)
         if game.bonus:
@@ -574,67 +579,61 @@ class Enemy(Tank):
 
 
 class Bonus(pygame.sprite.Sprite):
-    red_pos = 40
-    green_pos = 75
 
     def __init__(self, time, image=Tile.tile_images['empty']):
         super().__init__(icons)
+        self.green_pos = randrange(30, 81)
         self.image = image
         self.rect = self.image.get_rect()
         self.rect.x, self.rect.y = WIDTH // 2, HEIGHT + 20
-        self.time = time
+        self.base_time = time // self.green_pos
+        self.time = self.base_time
 
     def timer(self):
         self.time -= 1
         return self.time
 
     def draw_time(self):
-        self.percent = int(self.time / game.time_for_quest * 100)
+        self.percent = int(self.time / self.base_time * 100)
 
-        if self.green_pos > self.percent > self.red_pos:
-            color = (0, 255, 0)
-        else:
+        if self.green_pos < self.percent:
             color = (190, 190, 190)
+        else:
+            color = (255 - int(self.percent * 2.5), int(self.percent * 2.5), 0)
 
         pygame.draw.rect(screen, color, (WIDTH // 2, HEIGHT + 50, self.percent * 2, 20))
 
-    def quest_completed(self):
-        try:
-            if self.percent > self.green_pos:
-                pass
-            elif self.percent > self.red_pos:
-                self.effect(game.tanks[0])
-            else:
-                # self.effect(game.tanks[1:])
-                pass
-            self.time = 0
-            icons.remove(self)
-        except AttributeError:
-            pass
+    def quest_completed(self, status='pass'):
+        self.time = 0
+        icons.remove(self)
+        game.bonus = None
+        game.bonus_quest = 0
+        if status == 'pass' and self.percent < self.green_pos:
+            self.effect()
+        elif status == 'fall':
+            self.debuff()
 
 
 class MedComplect(Bonus):
     def __init__(self, time):
         super().__init__(time, SubMenu.health_image.image)
 
-    def effect(self, objs):
-        try:
-            for tank in objs:
-                tank.health = 50
-        except TypeError:
-            objs.health = 100
+    def effect(self):
+        game.tanks[0].health = 100
+
+    def debuff(self):
+        game.injure = True
 
 
 class RepairComplect(Bonus):
     def __init__(self, time):
         super().__init__(time, SubMenu.armor_image.image)
 
-    def effect(self, objs):
-        try:
-            for tank in objs:
-                tank.armor = 50
-        except TypeError:
-            objs.armor = 100
+    def effect(self):
+        game.tanks[0].armor = 100
+
+    def debuff(self):
+        game.corrosion = True
 
 
 class Game:
@@ -643,6 +642,9 @@ class Game:
         pass
 
     def restore_data(self):
+        self.corrosion = False
+        self.injure = False
+
         self.tanks_count = 2
         self.records = Loads().load_records()
         self.in_go_menu = True
@@ -654,7 +656,7 @@ class Game:
 
         self.bonus_quest = 0
         self.bonus = None
-        self.time_for_quest = 1000
+        self.base_time_for_quest = 48000
 
         self.clock = pygame.time.Clock()
 
@@ -723,6 +725,16 @@ class Game:
         for exp in explosions_group:
             exp.new_step()
 
+        if self.injure:
+            if self.tanks[0].health:
+                self.tanks[0].health -= 0.1
+            else:
+                self.tanks[0].destroy()
+
+        if self.corrosion:
+            if self.tanks[0].armor:
+                self.tanks[0].armor -= 0.1
+
         self.submenu.draw()
         tiles_group.draw(screen)
         bullets_sprites.draw(screen)
@@ -733,13 +745,14 @@ class Game:
 
         if self.bonus_quest <= 0:
             if self.bonus:
-                self.bonus.quest_completed()
-            if not randrange(0, 1000):
-                self.bonus_quest = self.time_for_quest
-                self.bonus = choice([MedComplect, RepairComplect])(self.time_for_quest)
+                self.bonus.quest_completed('fall')
+            elif not randrange(0, 100):
+                self.bonus = choice([MedComplect, RepairComplect])(self.base_time_for_quest)
+                self.bonus_quest = self.bonus.time
         elif self.bonus_quest > 0:
             self.bonus_quest = self.bonus.timer()
             self.bonus.draw_time()
+            self.submenu.draw_gran()
 
         pygame.display.flip()
         self.clock.tick(FPS)
