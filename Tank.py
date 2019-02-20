@@ -114,18 +114,18 @@ class MainMenu:
         self.name.rect = self.name.image.get_rect()
         self.name.rect.x, self.name.rect.y = 330, 250
 
-        self.__font = pygame.font.Font(None, 30)
+        self.font = pygame.font.Font(None, 30)
 
-        self.play = self.__font.render("Play", 1, (255, 255, 255))
+        self.play = self.font.render("Play", 1, (255, 255, 255))
         self.pos_play = (400, 400)
 
-        self.create = self.__font.render("Credits", 1, (255, 255, 255))
+        self.create = self.font.render("Credits", 1, (255, 255, 255))
         self.pos_create = (self.pos_play[0], self.pos_play[1] + 50)
 
-        self.exit = self.__font.render("Exit", 1, (255, 255, 255))
+        self.exit = self.font.render("Exit", 1, (255, 255, 255))
         self.pos_exit = (self.pos_play[0], self.pos_play[1] + 100)
 
-        self.instruction = self.__font.render("", 1, (255, 255, 255))
+        self.instruction = self.font.render("", 1, (255, 255, 255))
         self.pos_instruction = (800, 200)
 
         self.arrow = pygame.sprite.Sprite()
@@ -433,13 +433,15 @@ class Level:
 
 
 class Tank(pygame.sprite.Sprite):
-    tank_image_down = pygame.transform.scale(Loads().load_image('tank.png'), (30, 30))
-    tank_image_up = pygame.transform.rotate(tank_image_down, 180)
-    tank_image_left = pygame.transform.rotate(tank_image_down, 270)
-    tank_image_right = pygame.transform.rotate(tank_image_down, 90)
+    tank_image_right = pygame.transform.rotate(pygame.transform.scale(Loads().load_image('tanks/tank.png'), (30, 30)),
+                                               90)
 
-    def __init__(self, start_coords, health=100, armor=100, speed=2, damage=10):
+    def __init__(self, start_coords, health=100, armor=100, speed=2, damage=10, image='tanks/tank.png'):
         super().__init__(tank_sprites)
+        self.tank_image_down = pygame.transform.scale(Loads().load_image(image), (30, 30))
+        self.tank_image_up = pygame.transform.rotate(self.tank_image_down, 180)
+        self.tank_image_left = pygame.transform.rotate(self.tank_image_down, 270)
+        self.tank_image_right = pygame.transform.rotate(self.tank_image_down, 90)
         self.score = 0
         self.speed = speed
         self.health = health
@@ -526,8 +528,9 @@ class Tank(pygame.sprite.Sprite):
 
 
 class Enemy(Tank):
-    def __init__(self, target):
-        super().__init__(self.spawn(), 30, 0, 1)
+    def __init__(self, target, picture):
+        super().__init__(self.spawn(), 30, 0, 1, image=picture)
+        self.fire_sound = fire_sound
         self.last_coords = [None] * 5
         self.evector = None
         self.otkat = 0
@@ -554,8 +557,10 @@ class Enemy(Tank):
         if self.ox in range(-15, 16) or self.oy in range(-15, 16) or not self.is_moving():
             self.vect_change(self.ox, self.oy)
             if self.otkat < 0 and self.evector:
+                self.fire_sound.play()
+                Shoot().fir((self.rect.x, self.rect.y), self.evector)
                 Bullet(self.evector, self, self.damage).shoot((self.rect.x + 13, self.rect.y + 13))
-                self.otkat = 35
+                self.otkat = 60
             self.evector = None
         if not self.evector:
             self.vect_change(self.ox, self.oy)
@@ -610,7 +615,7 @@ class Bonus(pygame.sprite.Sprite):
         game.bonus_quest = 0
         if status == 'pass' and self.percent < self.green_pos:
             self.effect()
-        elif status == 'fall':
+        elif status == 'fail':
             self.debuff()
 
 
@@ -645,7 +650,8 @@ class Game:
         self.corrosion = False
         self.injure = False
 
-        self.tanks_count = 2
+        self.fire_sound = fire_sound
+        self.tanks_count = 5  # не больше 5!!!
         self.records = Loads().load_records()
         self.in_go_menu = True
         self.vector = None
@@ -663,7 +669,7 @@ class Game:
         self.tanks = [Tank((500, 500))]
 
         for i in range(self.tanks_count):
-            self.tanks.append(Enemy(self.tanks[0]))
+            self.tanks.append(Enemy(self.tanks[0], "tanks/tank{}.png".format(i + 1)))
 
         self.level = []
         for y in range(HEIGHT // tile_height):
@@ -693,7 +699,7 @@ class Game:
 
             if event.type == pygame.KEYDOWN:
                 if event.key == 32:
-                    fire_sound.play()
+                    self.fire_sound.play()
                     Shoot().fir((self.tanks[0].rect.x, self.tanks[0].rect.y), self.vector if self.vector else self.napr)
                     Bullet(self.vector if self.vector else self.napr, self.tanks[0], self.tanks[0].damage).shoot(
                         (self.tanks[0].rect.x + 13, self.tanks[0].rect.y + 13))
@@ -708,7 +714,7 @@ class Game:
         for i in range(len(self.respawn)):
             self.respawn[i] -= 1
             if not self.respawn[i]:
-                self.tanks.append(Enemy(self.tanks[0]))
+                self.tanks.append(Enemy(target=self.tanks[0], picture="tanks/tank{}.png".format(len(self.tanks) - 1)))
 
         for sh in shoots:
             sh.otkat -= 1
@@ -725,16 +731,6 @@ class Game:
         for exp in explosions_group:
             exp.new_step()
 
-        if self.injure:
-            if self.tanks[0].health:
-                self.tanks[0].health -= 0.1
-            else:
-                self.tanks[0].destroy()
-
-        if self.corrosion:
-            if self.tanks[0].armor:
-                self.tanks[0].armor -= 0.1
-
         self.submenu.draw()
         tiles_group.draw(screen)
         bullets_sprites.draw(screen)
@@ -743,9 +739,23 @@ class Game:
         explosions_group.draw(screen)
         stealth_group.draw(screen)
 
+        if self.injure:
+            screen.blit(main_menu.font.render('inj', 1, (255, 100, 0)),
+                        (self.submenu.health_image.rect.x + 350, self.submenu.health_image.rect.y))
+            if self.tanks[0].health > 0:
+                self.tanks[0].health -= 0.1
+            else:
+                self.tanks[0].destroy()
+
+        if self.corrosion:
+            screen.blit(main_menu.font.render('cor', 1, (200, 190, 0)),
+                        (self.submenu.armor_image.rect.x + 350, self.submenu.armor_image.rect.y))
+            if self.tanks[0].armor:
+                self.tanks[0].armor -= 0.1
+
         if self.bonus_quest <= 0:
             if self.bonus:
-                self.bonus.quest_completed('fall')
+                self.bonus.quest_completed('fail')
             elif not randrange(0, 100):
                 self.bonus = choice([MedComplect, RepairComplect])(self.base_time_for_quest)
                 self.bonus_quest = self.bonus.time
@@ -753,6 +763,10 @@ class Game:
             self.bonus_quest = self.bonus.timer()
             self.bonus.draw_time()
             self.submenu.draw_gran()
+
+        if self.tanks[0].health <= 80:
+            for i in range(0, int(81 - self.tanks[0].health), 2):
+                pygame.draw.rect(screen, (255, 0, 0), (i, i, WIDTH - i * 2, HEIGHT - i * 2), 1)
 
         pygame.display.flip()
         self.clock.tick(FPS)
@@ -774,10 +788,13 @@ while True:
         main_menu.cycle()
 
     start_sound.stop()
-    pygame.mixer.music.play()
+    # pygame.mixer.music.play()
 
     while game.running:
-        game.cycle()
+        try:
+            game.cycle()
+        except IndexError:
+            game.running = False
 
     pygame.mixer.music.stop()
 
