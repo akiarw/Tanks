@@ -155,7 +155,7 @@ class MainMenu:
         if self.arrow.rect.y == self.pos_play[1] - 5:
             return 'start'
         elif self.arrow.rect.y == self.pos_create[1] - 5:
-            return 'create'
+            return 'credits'
         else:
             return 'exit'
 
@@ -169,6 +169,8 @@ class MainMenu:
                     act = main_menu.act()
                     if act == 'start':
                         game.in_menu = False
+                    elif act == 'credits':
+                        credits()
                     elif act == 'exit':
                         game.in_menu = game.running = False
                         sys.exit()
