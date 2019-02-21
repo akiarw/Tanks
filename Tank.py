@@ -5,7 +5,7 @@ import credits
 from random import randrange, choice
 
 
-def restore_program_data():
+def restore_program_data():    # инициализация всех глобальных переменных
     global FPS, tile_width, tile_height, WIDTH, HEIGHT, tiles_group, tank_sprites, stealth_group, bullets_sprites
     global menu_group, icons, shoots, explosions_group, screen, start_sound, end_sound, fire_sound, enemy_sound
     FPS = 100
@@ -35,7 +35,7 @@ def restore_program_data():
 restore_program_data()
 
 
-class Loads:
+class Loads:     #закрузка/выгрузка из файлов
 
     def load_image(self, name, colorkey=None):
         fullname = os.path.join('data', name)
@@ -61,7 +61,7 @@ class Loads:
             filename.write(' '.join(list(map(str, game.records))))
 
 
-class Tile(pygame.sprite.Sprite):
+class Tile(pygame.sprite.Sprite):     # родитель всех тайлов
     lds = Loads()
     tile_images = {
         'empty': pygame.transform.scale(lds.load_image('asphalt.png'), (tile_width, tile_height)),
@@ -85,29 +85,29 @@ class Tile(pygame.sprite.Sprite):
             game.walls[num] = [-tile_width, -tile_height]
 
 
-class Grass(Tile):
+class Grass(Tile):   # класс для кустов
     def __init__(self, pos):
         super().__init__(pos, 'bush')
 
 
-class Bricks(Tile):
+class Bricks(Tile):    # класс для кирпичей
     def __init__(self, pos):
         super().__init__(pos, 'wall')
         self.armor = 2
 
 
-class Metal(Tile):
+class Metal(Tile):      # класс для металлических блоков
     def __init__(self, pos):
         super().__init__(pos, 'metal')
         self.armor = 7
 
 
-class Empty(Tile):
+class Empty(Tile):      # класс для пустоты
     def __init__(self, pos):
         super().__init__(pos, 'empty')
 
 
-class MainMenu:
+class MainMenu:     # работа  главного меню
 
     def __init__(self):
         self.name = pygame.sprite.Sprite()
@@ -181,7 +181,7 @@ class MainMenu:
             self.draw()
 
 
-class GameOver:
+class GameOver:   # класс экрана "Game Over"
     def __init__(self):
         self.font = pygame.font.Font(None, 50)
         self.iters = 0
@@ -221,7 +221,7 @@ class GameOver:
             Loads().save_result()
 
 
-class SubMenu:
+class SubMenu:     # класс для панели состояния игрока
     health_image = pygame.sprite.Sprite()
     health_image.image = pygame.transform.scale(Loads().load_image('health.png'), (20, 20))
     health_image.rect = health_image.image.get_rect()
@@ -272,7 +272,7 @@ class SubMenu:
         self.text_score = self.font.render(str(self.score), 1, (255, 255, 255))
 
 
-class Explosion(pygame.sprite.Sprite):
+class Explosion(pygame.sprite.Sprite):   # класс анимации взрывов
     lds = Loads()
     explosion = []
     for i in range(8):
@@ -294,7 +294,7 @@ class Explosion(pygame.sprite.Sprite):
             explosions_group.remove(self)
 
 
-class Shoot(pygame.sprite.Sprite):
+class Shoot(pygame.sprite.Sprite):     # класс анимации огня
     def __init__(self):
         super().__init__(shoots)
         self.otkat = 5
@@ -327,7 +327,7 @@ class Shoot(pygame.sprite.Sprite):
         self.rect.x, self.rect.y = tank_crds
 
 
-class Bullet(pygame.sprite.Sprite):
+class Bullet(pygame.sprite.Sprite):    # класс анимации снарядов
     base_image = pygame.transform.scale(Loads().load_image('bullet.png'), (5, 10))
     images = {
         'up': base_image,
@@ -394,7 +394,7 @@ class Bullet(pygame.sprite.Sprite):
         return True
 
 
-class Level:
+class Level:    # класс для генерации уровня
 
     def __init__(self):
         for y in range(len(game.level)):
@@ -435,7 +435,7 @@ class Level:
         return False
 
 
-class Tank(pygame.sprite.Sprite):
+class Tank(pygame.sprite.Sprite):    # класс для пользовательского танка
     tank_image_right = pygame.transform.rotate(pygame.transform.scale(Loads().load_image('tanks/tank.png'), (30, 30)),
                                                90)
 
@@ -530,7 +530,7 @@ class Tank(pygame.sprite.Sprite):
         return False
 
 
-class Enemy(Tank):
+class Enemy(Tank):      # класс вражеских танков
     def __init__(self, target, picture):
         super().__init__(self.spawn(), 30, 0, 1, image=picture)
         self.fire_sound = fire_sound
@@ -586,7 +586,7 @@ class Enemy(Tank):
         return False
 
 
-class Bonus(pygame.sprite.Sprite):
+class Bonus(pygame.sprite.Sprite):  # система бонусов
 
     def __init__(self, time, image=Tile.tile_images['empty']):
         super().__init__(icons)
@@ -622,7 +622,7 @@ class Bonus(pygame.sprite.Sprite):
             self.debuff()
 
 
-class MedComplect(Bonus):
+class MedComplect(Bonus):    # бонус здоровья
     def __init__(self, time):
         super().__init__(time, SubMenu.health_image.image)
 
@@ -633,7 +633,7 @@ class MedComplect(Bonus):
         game.injure = True
 
 
-class RepairComplect(Bonus):
+class RepairComplect(Bonus):      # бонус восстановления брони
     def __init__(self, time):
         super().__init__(time, SubMenu.armor_image.image)
 
@@ -644,7 +644,7 @@ class RepairComplect(Bonus):
         game.corrosion = True
 
 
-class Game:
+class Game:   # основной игровой класс
 
     def __init__(self):
         pass
