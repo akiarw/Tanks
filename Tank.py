@@ -10,7 +10,7 @@ def restore_program_data():    # инициализация всех глоба�
     global menu_group, icons, shoots, explosions_group, screen, start_sound, end_sound, fire_sound, enemy_sound
     FPS = 100
     tile_width = tile_height = 25
-    WIDTH, HEIGHT = 1000, 700
+    WIDTH, HEIGHT = 1000, 600
 
     tiles_group = pygame.sprite.Group()
     tank_sprites = pygame.sprite.Group()
@@ -47,7 +47,7 @@ class Loads:     #закрузка/выгрузка из файлов
         image = image.convert_alpha()
         if colorkey is not None:
 
-            if colorkey is -1:
+            if colorkey == -1:
                 colorkey = image.get_at((0, 0))
             image.set_colorkey(colorkey)
         return image
@@ -175,8 +175,8 @@ class MainMenu:     # работа  главного меню
                     elif act == 'exit':
                         game.in_menu = game.running = False
                         sys.exit()
-                elif event.key in [273, 274]:
-                    main_menu.change_cursor(game.vectors[event.key])
+                else:
+                    main_menu.change_cursor(game.vectors.get(event.key, None))
 
             self.draw()
 
@@ -276,7 +276,7 @@ class Explosion(pygame.sprite.Sprite):   # класс анимации взры�
     lds = Loads()
     explosion = []
     for i in range(8):
-        explosion.append(pygame.transform.scale(lds.load_image('Explosions\\exp{}.png'.format(i + 1)),
+        explosion.append(pygame.transform.scale(lds.load_image('Explosions/exp{}.png'.format(i + 1)),
                                                 (tile_width, tile_height)))
 
     def __init__(self, coords):
@@ -298,7 +298,7 @@ class Shoot(pygame.sprite.Sprite):     # класс анимации огня
     def __init__(self):
         super().__init__(shoots)
         self.otkat = 5
-        self.base_fire = pygame.transform.scale(Loads().load_image('Explosions\\fire.png'), (10, 10))
+        self.base_fire = pygame.transform.scale(Loads().load_image('Explosions/fire.png'), (10, 10))
         self.fires = {
             'up': self.base_fire,
             'down': pygame.transform.rotate(self.base_fire, 180),
@@ -689,7 +689,11 @@ class Game:   # основной игровой класс
             273: 'up',
             274: 'down',
             275: 'right',
-            276: 'left'
+            276: 'left',
+            1073741906: 'up',   # для MacOS
+            1073741905: 'down',
+            1073741903: 'right',
+            1073741904: 'left'
         }
         self.running = True
         self.in_menu = True
@@ -701,6 +705,8 @@ class Game:   # основной игровой класс
                 sys.exit()
 
             if event.type == pygame.KEYDOWN:
+                print(event.key)
+
                 if event.key == 32:
                     self.fire_sound.play()
                     Shoot().fir((self.tanks[0].rect.x, self.tanks[0].rect.y), self.vector if self.vector else self.napr)
