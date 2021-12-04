@@ -705,7 +705,6 @@ class Game:   # основной игровой класс
                 sys.exit()
 
             if event.type == pygame.KEYDOWN:
-                print(event.key)
 
                 if event.key == 32:
                     self.fire_sound.play()
